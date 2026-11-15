@@ -1,0 +1,59 @@
+# XcodeGen spec. CI runs `xcodegen generate` to produce KeyboardHost.xcodeproj
+# (the .xcodeproj is git-ignored; this file is the source of truth).
+#
+# >>> To change the bundle id, edit BASE_BUNDLE_ID below (one place). <<<
+#   container app : $(BASE_BUNDLE_ID)
+#   keyboard ext  : $(BASE_BUNDLE_ID).Keyboard
+name: KeyboardHost
+
+options:
+  bundleIdPrefix: com.skroyc.keyboard
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    BASE_BUNDLE_ID: com.skroyc.keyboard
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_BITCODE: NO
+    # CI builds unsigned; SideStore/AltStore re-signs on install.
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  KeyboardHost:
+    type: application
+    platform: iOS
+    sources:
+      - path: KeyboardHost
+        excludes: ["Info.plist"]
+    settings:
+      base:
+        PRODUCT_NAME: KeyboardHost
+        PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_ID)
+        INFOPLIST_FILE: KeyboardHost/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      # app-extension dependencies are embedded into KeyboardHost.app/PlugIns/
+      - target: Keyboard
+        embed: true
+    scheme: {}
+
+  Keyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Keyboard
+        excludes: ["Info.plist"]
+    settings:
+      base:
+        PRODUCT_NAME: Keyboard
+        PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_ID).Keyboard
+        INFOPLIST_FILE: Keyboard/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
