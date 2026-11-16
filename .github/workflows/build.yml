@@ -40,14 +40,29 @@ jobs:
           nix profile add "${nixpkgs_ref}#devenv" "${nixpkgs_ref}#direnv"
           direnv allow
 
+      - name: Load pinned development tools
+        run: direnv exec . true
+
       - name: Check source and tooling
         run: direnv exec . check
 
-      - name: Install, enable, and exercise the keyboard in the simulator
-        run: direnv exec . ios-test
+      - name: Generate Xcode project
+        run: direnv exec . ios-project
 
-      - name: Archive and verify the unsigned device IPA
-        run: direnv exec . ios-build
+      - name: Boot matching iOS simulator
+        run: direnv exec . ios-simulator
+
+      - name: Compile host, keyboard, and UI tests
+        run: direnv exec . ios-test-build
+
+      - name: Enable and exercise the keyboard in Settings
+        run: direnv exec . ios-test-run
+
+      - name: Archive unsigned device app
+        run: direnv exec . ios-archive
+
+      - name: Package and verify device IPA
+        run: direnv exec . ios-package
 
       - name: Upload logs and simulator evidence
         if: always()
@@ -59,6 +74,7 @@ jobs:
             build/*.xcresult
             build/*.png
             build/*.json
+            build/*.txt
           if-no-files-found: ignore
           retention-days: 7
 

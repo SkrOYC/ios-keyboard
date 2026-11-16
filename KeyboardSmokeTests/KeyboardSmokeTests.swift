@@ -11,15 +11,15 @@ final class KeyboardSmokeTests: XCTestCase {
 
         let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
         settings.launch()
-        let general = settings.cells["General"]
+        let general = settings.cells.containing(.staticText, identifier: "General").firstMatch
         for _ in 0..<5 where !general.isHittable {
             settings.swipeUp()
         }
         XCTAssertTrue(general.waitForExistence(timeout: 10), settings.debugDescription)
         general.tap()
-        settings.cells["Keyboard"].firstMatch.tap()
-        settings.cells["Keyboards"].firstMatch.tap()
-        settings.cells["Add New Keyboard…"].firstMatch.tap()
+        settings.cells.containing(.staticText, identifier: "Keyboard").firstMatch.tap()
+        settings.cells.containing(.staticText, identifier: "Keyboards").firstMatch.tap()
+        settings.cells.containing(.staticText, identifier: "Add New Keyboard…").firstMatch.tap()
         let keyboard = settings.cells.containing(.staticText, identifier: "Keyboard").firstMatch
         XCTAssertTrue(keyboard.waitForExistence(timeout: 10), settings.debugDescription)
         keyboard.tap()

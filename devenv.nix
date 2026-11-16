@@ -1,4 +1,9 @@
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 {
   # Xcode and its iOS SDK are supplied by the macOS runner under Apple's license.
   # scripts/ios.zsh checks this version before using any Apple tool.
@@ -34,13 +39,27 @@
       pkgs.usbutils
     ];
 
-  scripts = {
-    check.exec = "exec zsh scripts/check.zsh";
-    ios-build.exec = "exec zsh scripts/ios.zsh build";
-    ios-test.exec = "exec zsh scripts/ios.zsh test";
-    ipa-check.exec = ''exec python3 scripts/verify-ipa.py "$@"'';
-    phone-check.exec = "exec zsh scripts/phone.zsh";
-  };
+  scripts =
+    lib.mapAttrs
+      (_: command: {
+        exec = ''
+          cd ${lib.escapeShellArg config.devenv.root}
+          exec ${command}
+        '';
+      })
+      {
+        check = "zsh scripts/check.zsh";
+        ios-build = "zsh scripts/ios.zsh build";
+        ios-test = "zsh scripts/ios.zsh test";
+        ios-project = "zsh scripts/ios.zsh project";
+        ios-simulator = "zsh scripts/ios.zsh simulator";
+        ios-test-build = "zsh scripts/ios.zsh test-build";
+        ios-test-run = "zsh scripts/ios.zsh test-run";
+        ios-archive = "zsh scripts/ios.zsh archive";
+        ios-package = "zsh scripts/ios.zsh package";
+        ipa-check = ''python3 scripts/verify-ipa.py "$@"'';
+        phone-check = "zsh scripts/phone.zsh";
+      };
 
   enterTest = "check";
 }

@@ -23,7 +23,9 @@ Run project commands through `direnv exec .`. To update the pinned environment, 
 
 [GitHub Actions](https://github.com/SkrOYC/ios-keyboard/actions) runs on branch pushes, pull requests, version tags, and manual dispatch. The repository is public and uses a standard `macos-26` runner, which [doesn't consume private repository CI minutes](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Build artifacts expire after seven days.
 
-The workflow uses the same devenv configuration and `direnv exec` commands as local development:
+The workflow uses the same devenv configuration and `direnv exec` commands as local development.
+
+GitHub shows separate steps for loading tools, generating the project, booting the simulator, compiling the tests, running the UI test, archiving, and packaging. Local `ios-test` and `ios-build` commands run those stages in sequence. The stages perform these checks:
 
 1. `check` validates the configuration, shell scripts, workflow, and IPA verifier.
 2. `ios-test` installs the host in an iPhone simulator, enables the extension through Settings, and tests typing, shift, space, delete, return, and rotation.
