@@ -53,7 +53,7 @@ The tagged workflow reruns the checks and publishes the IPA and its SHA-256 chec
 To download and validate the release from Linux:
 
 ```sh
-direnv exec . gh release download --pattern 'KeyboardHost.ipa*' --dir build
+direnv exec . gh release download --pattern 'KeyboardHost.ipa*' --dir build --clobber
 direnv exec . zsh -c 'cd build && sha256sum -c KeyboardHost.ipa.sha256'
 direnv exec . ipa-check build/KeyboardHost.ipa
 ```

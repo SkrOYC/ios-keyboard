@@ -12,6 +12,11 @@ if [[ ! -d $DEVELOPER_DIR ]]; then
   exit 1
 fi
 
+# Nix sets compiler drivers for its own builds. Xcode must select its own
+# drivers: in particular, LD=ld makes it send clang arguments directly to ld.
+print "Clearing Nix compiler overrides: CC=${CC:-unset}, LD=${LD:-unset}"
+unset CC CXX LD LDPLUSPLUS AR AS NM RANLIB STRIP SDKROOT
+
 /usr/bin/xcodebuild -version
 /usr/bin/xcrun --sdk iphoneos --show-sdk-version
 xcodegen --version
@@ -71,6 +76,8 @@ print(phones[0])
       -resultBundlePath "$PWD/build/SmokeTests.xcresult" \
       CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
       > build/simulator.log 2>&1; then
+      /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/simulator-failure.png" || true
+      rg -n -C 3 'error:|failed|Failed|XCTAssert' build/simulator.log || true
       tail -n 120 build/simulator.log
       exit 1
     fi
