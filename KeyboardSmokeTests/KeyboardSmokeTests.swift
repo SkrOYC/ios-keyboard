@@ -165,20 +165,14 @@ final class KeyboardSmokeTests: XCTestCase {
     }
 
     private func selectKeyboardExtension(in app: XCUIApplication) {
-        if key("q", in: app).waitForExistence(timeout: 3) { return }
-        let globe = app.buttons["Next keyboard"].firstMatch
-        XCTAssertTrue(globe.waitForExistence(timeout: 5), app.debugDescription)
-        // Native iPad keyboard elements can have valid frames but invalid AX hit points.
-        coordinate(globe, in: app).press(forDuration: 1)
-        let menu = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        menu.name = "System keyboard selection menu"
-        menu.lifetime = .keepAlways
-        add(menu)
-        let entry = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label == %@ OR label == %@", "Keyboard", "Keyboard Host")
-        ).firstMatch
-        XCTAssertTrue(entry.waitForExistence(timeout: 5), app.debugDescription)
-        coordinate(entry, in: app).tap()
+        for _ in 0..<5 {
+            dismissSystemKeyboardIntroduction(in: app)
+            if key("q", in: app).waitForExistence(timeout: 3) { return }
+            let globe = app.buttons["Next keyboard"].firstMatch
+            XCTAssertTrue(globe.waitForExistence(timeout: 5), app.debugDescription)
+            // Native iPad keyboard elements can have valid frames but invalid AX hit points.
+            coordinate(globe, in: app).tap()
+        }
     }
 
     private func tap(_ key: XCUIElement) {

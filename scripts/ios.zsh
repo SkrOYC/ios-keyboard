@@ -87,6 +87,23 @@ compile_tests() {
   tail -n 8 "$compile_log"
 }
 
+collect_extension_diagnostics() {
+  local probe_name=$1
+  /usr/bin/xcrun simctl spawn "$simulator" log help show > build/log-show-help.txt 2>&1 || true
+  /usr/bin/xcrun simctl spawn "$simulator" log show --style compact --last 10m --info --debug \
+    --predicate 'process == "Keyboard" OR eventMessage CONTAINS "com.skroyc.keyboard.Keyboard"' \
+    > "build/${probe_name}-extension.log" 2>&1 || true
+  python3 - "$probe_name" <<'PY'
+from pathlib import Path
+import shutil
+import sys
+
+reports = Path.home() / "Library/Logs/DiagnosticReports"
+for index, report in enumerate(sorted(reports.glob("Keyboard*.ips"))):
+    shutil.copyfile(report, Path("build") / f"{sys.argv[1]}-crash-{index}.txt")
+PY
+}
+
 run_tests() {
   local probe_name=${1:-SmokeTests}
   local probe_configuration=${2:-Debug}
@@ -110,6 +127,7 @@ run_tests() {
     > "$probe_log" 2>&1; then
     print -r -- failure > "$capture_done"
     wait "$popup_capture_pid" 2>/dev/null || true
+    collect_extension_diagnostics "$probe_name" || true
     /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/${probe_name}-failure.png" || true
     /usr/bin/xcrun xcresulttool export attachments --path "$probe_result" --output-path "$probe_screenshots" || true
     report_failure "$probe_log"
