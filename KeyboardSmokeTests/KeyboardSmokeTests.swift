@@ -39,24 +39,38 @@ final class KeyboardSmokeTests: XCTestCase {
             globe.tap()
         }
         XCTAssertTrue(key("q", in: app).waitForExistence(timeout: 10), app.debugDescription)
-        key("h", in: app).tap()
-        key("i", in: app).tap()
-        XCTAssertEqual(field.value as? String, "hi")
+        swipe(key("h", in: app), dx: 0, dy: -1)
+        tap(key("i", in: app))
+        swipe(key("i", in: app), dx: 1, dy: 0)
+        tap(key("q", in: app))
+        swipe(key("q", in: app), dx: -1, dy: 0)
+        swipe(key("h", in: app), dx: 0, dy: 1)
+        XCTAssertEqual(field.value as? String, "Hi \n")
 
-        let portrait = XCTAttachment(screenshot: app.screenshot())
+        let portrait = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         portrait.name = "Keyboard in portrait"
         portrait.lifetime = .keepAlways
         add(portrait)
 
         XCUIDevice.shared.orientation = .landscapeLeft
+        let rotated = expectation(for: NSPredicate { _, _ in app.frame.width > app.frame.height }, evaluatedWith: app)
+        wait(for: [rotated], timeout: 15)
         XCTAssertTrue(key("q", in: app).waitForExistence(timeout: 10))
-        key("q", in: app).tap()
-        XCTAssertEqual(field.value as? String, "hiq")
-        let landscape = XCTAttachment(screenshot: app.screenshot())
+        tap(key("q", in: app))
+        XCTAssertEqual(field.value as? String, "Hi \nq")
+        let landscape = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         landscape.name = "Keyboard in landscape"
         landscape.lifetime = .keepAlways
         add(landscape)
         XCUIDevice.shared.orientation = .portrait
+    }
+
+    private func swipe(_ key: XCUIElement, dx: CGFloat, dy: CGFloat) {
+        let start = key.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // Half a key's width exceeds the scaled 70-unit threshold without repeating delete.
+        let travel = key.frame.width * 0.5
+        let end = start.withOffset(CGVector(dx: dx * travel, dy: dy * travel))
+        start.press(forDuration: 0.05, thenDragTo: end)
     }
 
     private func dismissSystemKeyboardIntroduction(in app: XCUIApplication) {
@@ -66,6 +80,10 @@ final class KeyboardSmokeTests: XCTestCase {
             XCTAssertTrue(button.waitForExistence(timeout: 5))
             button.tap()
         }
+    }
+
+    private func tap(_ key: XCUIElement) {
+        key.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 
     private func key(_ label: String, in app: XCUIApplication) -> XCUIElement {

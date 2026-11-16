@@ -16,6 +16,7 @@ final class KeyboardViewController: UIInputViewController {
         heightConstraint.isActive = true
         view.addSubview(keyboard)
         debugLabel = DebugLog.makeLabel()
+        debugLabel?.isAccessibilityElement = false
         if let debugLabel { view.addSubview(debugLabel) }
         keyboard.onAction = { [weak self] action in self?.perform(action) }
         DebugLog.log("ready · hex 7×4")
@@ -45,7 +46,11 @@ final class KeyboardViewController: UIInputViewController {
         switch action {
         case .insert(let value):
             textDocumentProxy.insertText(value)
-            DebugLog.log("insert")
+            switch value {
+            case " ": DebugLog.log("space")
+            case "\n": DebugLog.log("return")
+            default: DebugLog.log("insert")
+            }
         case .delete:
             textDocumentProxy.deleteBackward()
             DebugLog.log("delete")

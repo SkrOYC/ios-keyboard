@@ -88,8 +88,8 @@ struct TouchMachine {
     }
 
     mutating func end(_ id: Int, at point: HexPoint, time: Double) -> [KeyboardAction] {
-        var actions = advance(id, time: time)
-        actions += move(id, to: point)
+        var actions = move(id, to: point)
+        actions += advance(id, time: time)
         guard let contact = contacts.removeValue(forKey: id) else { return actions }
         if let popup = contact.popup {
             switch popup.selection(at: point) {

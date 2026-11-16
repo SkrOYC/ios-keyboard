@@ -126,13 +126,22 @@ final class HexKeyboardView: UIView {
         refresh()
     }
 
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {}
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        for touch in touches {
+            guard let id = touchIDs[ObjectIdentifier(touch)] else { continue }
+            send(machine.move(id, to: point(touch)))
+        }
+        refresh()
+    }
+
+    private func send(_ actions: [KeyboardAction]) {
+        for action in actions { onAction?(action) }
+    }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
             guard let id = touchIDs.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
-            machine.cancel(id)
-            if let key = machine.geometry.key(at: point(touch)) { activate(key) }
+            send(machine.end(id, at: point(touch), time: touch.timestamp))
         }
         refresh()
     }
