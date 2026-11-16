@@ -31,6 +31,7 @@ struct ContentView: View {
                 }
                 Section("Try it") {
                     TextField("Type here", text: $sample, axis: .vertical)
+                        .accessibilityIdentifier("keyboard-sample")
                         .lineLimit(3...6)
                         .autocorrectionDisabled()
                 }

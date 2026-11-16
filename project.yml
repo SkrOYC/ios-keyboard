@@ -45,7 +45,9 @@ targets:
       # app-extension dependencies are embedded into KeyboardHost.app/PlugIns/
       - target: Keyboard
         embed: true
-    scheme: {}
+    scheme:
+      testTargets:
+        - KeyboardSmokeTests
 
   Keyboard:
     type: app-extension
@@ -60,3 +62,16 @@ targets:
         INFOPLIST_FILE: Keyboard/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         APPLICATION_EXTENSION_API_ONLY: YES
+
+  KeyboardSmokeTests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: KeyboardSmokeTests
+    dependencies:
+      - target: KeyboardHost
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_ID).SmokeTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: KeyboardHost

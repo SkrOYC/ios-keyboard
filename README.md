@@ -1,135 +1,101 @@
-# ios-keyboard
+# iOS keyboard
 
-A minimal custom iOS keyboard, built **without a Mac**:
+A SwiftUI host app and a UIKit keyboard extension for iOS and iPadOS 26. Write code on Linux, build and test on a public GitHub macOS runner, then sign and install the IPA with a free Apple ID.
 
-1. You write Swift on Linux (or anywhere) and push.
-2. GitHub Actions builds an **unsigned** `KeyboardHost.ipa` on a macOS runner.
-3. SideStore (or AltStore) on the iPhone re-signs it with your **free Apple ID** — keyboard extension included — and installs it.
+The keyboard types letters, supports one-shot shift, repeats delete while held, and includes space, return, and keyboard switching. It requests no Full Access and uses no network or App Group. `project.yml` defines both app targets; XcodeGen generates the Xcode project.
 
-No Apple Developer Program ($99/yr), no certificates, and no secrets in CI.
+## Development environment
 
-## Architecture
+Install [Nix and devenv](https://devenv.sh/getting-started/) and [direnv](https://direnv.net/docs/installation.html) on the development machine. The environment was initialized with `devenv init --include-envrc`.
 
-```
-ios-keyboard/
-├── project.yml                  # XcodeGen spec (source of truth; .xcodeproj is generated in CI)
-├── KeyboardHost/                # Container app (SwiftUI) — only exists to ship the extension
-│   ├── KeyboardHostApp.swift
-│   ├── ContentView.swift        # "How to enable" steps + a text field to try the keyboard
-│   └── Info.plist
-├── Keyboard/                    # Keyboard extension (UIKit, UIInputViewController)
-│   ├── KeyboardViewController.swift
-│   ├── DebugLog.swift           # On-keyboard debug line + memory readout (easy to remove)
-│   └── Info.plist               # NSExtension: com.apple.keyboard-service, RequestsOpenAccess=false
-└── .github/workflows/build.yml  # xcodegen → xcodebuild archive (unsigned) → .ipa artifact / Release
-```
-
-- **KeyboardHost** (`$(BASE_BUNDLE_ID)`) — iOS apps can't ship an extension alone, so this is the host. It shows how to turn the keyboard on in Settings.
-- **Keyboard** (`$(BASE_BUNDLE_ID).Keyboard`) — `KeyboardViewController` subclasses `UIInputViewController` and types through `textDocumentProxy`: three letter rows, shift (one-shot), delete with auto-repeat, 🌐 next-keyboard (shown only when `needsInputModeSwitchKey` is true), space and return. It's plain UIKit with no SwiftUI, to keep memory low.
-- The built app contains `KeyboardHost.app/PlugIns/Keyboard.appex`. CI checks it's there before packaging `Payload/KeyboardHost.app` into `KeyboardHost.ipa`.
-
-Deployment target: iOS 26.0, Swift 5.
-
-## Liquid Glass
-
-iOS 26 wraps every keyboard extension in the same Liquid Glass platter as the system keyboard (automatically, when built with the iOS 26 SDK). The controller keeps the extension's view and input view clear so that system platter shows through; it does not add a background effect of its own.
-
-The keycaps match the system keyboard's iOS 26 geometry and fills:
-
-- portrait: 45 pt keys, 6 pt gaps, 11 pt row gaps, 6.5 pt side margins, 8.5 pt continuous corners;
-- landscape: 27.5 pt keys, 8 pt row gaps, 7.5 pt corners;
-- one fill for letters and modifiers (white in light mode, white at 16% opacity in dark mode), a blank spacebar, SF Symbols for shift/delete/globe/return, and Apple's action blue for a non-default return key.
-
-Liquid Glass is used sparingly, as Apple recommends. Drawing a `UIGlassEffect` behind each of the ~30 keycaps would add glass layers on top of the system platter and spend the extension's small memory/GPU budget without matching Apple's keyboard (which uses a glass platter plus translucent keycaps). If you replace the keycaps with real glass controls, measure memory on device first; `UIButton.Configuration.glass()` is the low-effort way to try it.
-
-The temporary `UIDesignRequiresCompatibility` opt-out is deliberately not set. (It is ignored when built with the iOS 27 SDK anyway.)
-
-## Change the bundle id
-
-Edit **one line** in `project.yml`:
-
-```yaml
-settings:
-  base:
-    BASE_BUNDLE_ID: com.skroyc.keyboard # ← change this
-```
-
-The extension's id is derived from it as `<BASE_BUNDLE_ID>.Keyboard`, and it must stay prefixed by the app's id. (`options.bundleIdPrefix` is only an XcodeGen default; you can change it to match.) SideStore/AltStore rewrite bundle ids with your team id when signing, so the placeholder already works for sideloading. Change it if you want your own reverse-DNS name.
-
-## Build → sideload loop
-
-### CI
-
-`.github/workflows/build.yml` runs on every push to `master`, on PRs, and on manual **Run workflow** (`workflow_dispatch`). It:
-
-1. picks the latest stable Xcode on `macos-26` (Xcode 26 or later is required for the iOS 26 SDK and the Liquid Glass platter),
-2. `brew install xcodegen && xcodegen generate`,
-3. `xcodebuild archive -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""`,
-4. zips `Payload/KeyboardHost.app` into `KeyboardHost.ipa`,
-5. uploads it as the **`KeyboardHost-ipa`** artifact (plus `xcodebuild-log` for debugging).
-
-**Releases for the phone:** artifacts are zipped and need a GitHub login, which is awkward on the iPhone. Push a tag instead:
+Approve the environment and run its checks:
 
 ```sh
-git tag v0.2.0 && git push origin v0.2.0
+direnv allow
+direnv exec . check
 ```
 
-The `release` job then creates a GitHub Release with `KeyboardHost.ipa` attached. Open the release page in Safari, tap the `.ipa`, then **Share › SideStore** (or open it from Files in SideStore). Note: if the repo is **private**, you have to be signed in to GitHub in Safari to download it.
+`devenv.nix` declares the development tools, including GitHub CLI, Python with PyYAML, validation tools, USB device tools, and the Linux iloader app. `devenv.lock` pins the packages. XcodeGen is included on macOS. Xcode 26.4.1 and its iOS SDK are declared through `XCODE_VERSION` and checked before a build. GitHub supplies the licensed Xcode installation at `/Applications/Xcode_26.4.1.app`; Linux cannot run the Apple SDK.
 
-### One-time SideStore setup (from Linux)
+Run project commands through `direnv exec .`. To update the pinned environment, run `direnv exec . devenv update`, then rerun the checks and the GitHub workflow.
 
-SideStore is AltStore's fork that installs and refreshes apps **on the phone**. The computer is only needed once, for the initial install and the pairing file. (Source: docs.sidestore.io → Installation.)
+## Build and test
 
-1. On the ThinkPad, install `usbmuxd` (`sudo apt install usbmuxd`), then install **iloader** from its only official sources: <https://github.com/nab138/iloader/releases> or iloader.app (`.deb` or AppImage).
-2. Plug in the iPhone, tap **Trust**, open iloader, sign in with your (signing) Apple ID, select the device, and choose **Install SideStore (Stable)**. iloader installs SideStore, imports its certificate and **places the pairing file** automatically.
-3. On the iPhone, go to Settings › General › VPN & Device Management and **trust** your Apple ID's developer app. Turn on **Settings › Privacy & Security › Developer Mode** if iOS asks.
-4. Install **LocalDevVPN** from the App Store and connect it. SideStore needs this on-device VPN (and Wi‑Fi) whenever it installs or refreshes apps.
-5. Open SideStore, sign in with the same Apple ID, and in **My Apps** tap the `7 DAYS` counter to finish setup.
+[GitHub Actions](https://github.com/SkrOYC/ios-keyboard/actions) runs on branch pushes, pull requests, version tags, and manual dispatch. The repository is public and uses a standard `macos-26` runner, which [doesn't consume private repository CI minutes](https://docs.github.com/en/billing/concepts/product-billing/github-actions). Build artifacts expire after seven days.
 
-If SideStore later says the pairing file is invalid, re-run iloader → **Manage Pairing File** → **Place** for SideStore. (iloader can also install an `.ipa` directly over USB, which is handy as a fallback.)
+The workflow uses the same devenv configuration and `direnv exec` commands as local development:
 
-Use a **separate Apple ID** for signing, not your main account, with 2FA on.
+1. `check` validates the configuration, shell scripts, workflow, and IPA verifier.
+2. `ios-test` installs the host in an iPhone simulator, enables the extension through Settings, and tests typing, shift, space, delete, return, and rotation.
+3. `ios-build` archives the Release app without Apple credentials, checks both ARM64 executables, and packages `build/KeyboardHost.ipa`.
+4. `ipa-check` validates the packaged app, extension, bundle IDs, versions, device platform, executable permissions, and keyboard configuration.
 
-### Each iteration
+On a Mac with the declared Xcode installation, run:
 
-push → wait for CI (≈3–6 min) → download the `.ipa` (Release or artifact) → open in SideStore → install. Installing over the old version keeps your keyboard enabled.
+```sh
+direnv exec . ios-test
+direnv exec . ios-build
+```
 
-### Free Apple ID limits
+Download the `KeyboardHost-ipa` artifact from a successful run. The `lifecycle-evidence` artifact contains compiler logs, the XCTest result bundle, and simulator screenshots. An unsigned IPA requires signing before a physical device can install it.
 
-- **7-day expiry.** Signed apps stop launching after 7 days. SideStore refreshes them on the phone (with LocalDevVPN on and Wi‑Fi). Open it every few days, or set up an iOS Shortcuts automation to refresh.
-- **3 active sideloaded apps** at once, and SideStore itself counts as one.
-- **10 App IDs per 7 days.** This app uses **2** (host + keyboard). Changing the bundle id or installing extra apps uses more, so don't churn bundle ids.
-- No push notifications or iCloud. **App Groups** (sharing data between the app and keyboard) can be unreliable with free signing, so this starter avoids them.
+## Download on the phone
 
-## Enable the keyboard on the iPhone
+Push a version tag after the branch is ready:
 
-1. **Settings › General › Keyboard › Keyboards › Add New Keyboard…**
-2. Under _Third-Party Keyboards_, choose **Keyboard**.
-3. In any text field, long-press 🌐 and pick it. (The host app has a field for trying it.)
+```sh
+direnv exec . git tag v0.3.0
+direnv exec . git push origin v0.3.0
+```
 
-`RequestsOpenAccess` is `false`, so there's no "Allow Full Access" toggle. The keyboard has no network or shared container. If you later set it to `true`, test with Full Access both on and off.
+The tagged workflow reruns the checks and publishes the IPA and its SHA-256 checksum to [GitHub Releases](https://github.com/SkrOYC/ios-keyboard/releases). Public release downloads work without a GitHub login.
 
-Third-party keyboards never appear in secure (password) fields or phone-number pads, and an app can refuse them.
+To download and validate the release from Linux:
 
-## Memory limit
+```sh
+direnv exec . gh release download --pattern 'KeyboardHost.ipa*' --dir build
+direnv exec . zsh -c 'cd build && sha256sum -c KeyboardHost.ipa.sha256'
+direnv exec . ipa-check build/KeyboardHost.ipa
+```
 
-Keyboard extensions get roughly **50–70 MB** (it varies by device and iOS version). Going over gets the extension **killed silently**, and iOS just falls back to the previous keyboard. To stay safe:
+## Prepare the device without an Apple ID
 
-- prefer UIKit over SwiftUI in the extension, and reuse views rather than rebuilding them,
-- don't load big images, fonts, dictionaries or ML models eagerly. Use memory-mapped files instead,
-- don't add a `UIGlassEffect` to every key. The system platter is one glass layer; the keycaps here are plain views,
-- watch the debug line, which shows the live `phys_footprint` (the number iOS checks).
+Connect an iPhone or iPad with iOS or iPadOS 26 or later, unlock it, and trust the computer. On Linux, the host must run the `usbmuxd` service. The devenv environment provides the daemon and client tools; starting a privileged USB service is a host setup step.
 
-## Debugging without a Mac
+Probe USB communication and pairing:
 
-There's no Xcode console, so:
+```sh
+direnv exec . phone-check
+```
 
-- **Debug line on the keyboard.** `DebugLog.log("…")` shows the last event and the current memory in the 33 pt strip above the keys (the same area Apple uses for suggestions). To remove it, set `DebugLog.enabled = false` (the strip disappears and the keyboard gets shorter), or delete `Keyboard/DebugLog.swift` and its calls.
-- **File log.** The same lines go to `Library/Caches/keyboard.log` in the extension's sandbox (capped at 64 KB). That's handy if you later add an App Group or Full Access and want the host app to show it.
-- **Device logs from Linux.** Install `libimobiledevice`, plug in the phone, and run `idevicesyslog | grep -i keyboard`. It shows extension launches, crashes and jetsam (memory) kills. `idevicecrashreport -e ./crashes` pulls crash reports.
-- **On the phone.** Settings › Privacy & Security › Analytics & Improvements › Analytics Data lists `Keyboard-…` crash reports and `JetsamEvent-…` entries.
-- **CI logs.** The `xcodebuild-log` artifact has the full compiler output when a build fails.
-- If you need a simulator or debugger now and then, rent a cloud Mac (MacinCloud, AWS EC2 Mac) for an hour.
+If pairing hasn't been established, run `direnv exec . idevicepair pair`, approve **Trust** on the device, and repeat `phone-check`. Apple ID credentials aren't needed for this check.
+
+## Final step: sign and install
+
+Use [iloader](https://iloader.app/) for the first installation from Linux:
+
+```sh
+direnv exec . iloader
+```
+
+Enter the real signing Apple ID and its two-factor authentication code in iloader. Choose the connected device and import the downloaded `KeyboardHost.ipa`. Keep the keyboard extension when the installer offers to remove extensions. Trust the developer profile in **Settings > General > VPN & Device Management**, and enable **Settings > Privacy & Security > Developer Mode** if requested.
+
+After installation:
+
+1. Open **Keyboard Host**.
+2. Go to **Settings > General > Keyboard > Keyboards > Add New Keyboard** and add **Keyboard**.
+3. Return to the host app, tap **Type here**, and switch to the keyboard with the globe key.
+4. Try typing, shift, space, held delete, return, and rotation. Reinstall a subsequent build and confirm that the keyboard remains usable.
+
+[SideStore](https://docs.sidestore.io/docs/intro) is an optional next step for refreshing signed apps on the device. Its setup requires the same signing account. Free provisioning expires after seven days, and app and identifier limits apply; keep the host and extension bundle IDs stable.
+
+Apple authentication, provisioning, physical installation, and refresh require a real Apple ID. Simulator success and IPA validation don't prove that those steps succeeded.
+
+## Product configuration and diagnostics
+
+Change `BASE_BUNDLE_ID` in `project.yml` to change the host ID. The extension derives its ID as `$(BASE_BUNDLE_ID).Keyboard`. Both targets share the version and build number. UI test targets are simulator-only and aren't included in the IPA.
+
+`Keyboard/DebugLog.swift` shows the last keyboard event and memory footprint, and writes a bounded file in the extension's cache. Set `DebugLog.enabled` to `false` to remove the strip. For device diagnostics, run `direnv exec . idevicesyslog` or `direnv exec . idevicecrashreport -e crashes`.
 
 ## License
 

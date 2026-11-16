@@ -192,6 +192,7 @@ final class KeyboardViewController: UIInputViewController {
     private func makeCharacterRow(_ letters: [String]) -> [CharacterKey] {
         letters.map { letter in
             let key = CharacterKey(character: letter)
+            key.accessibilityIdentifier = "key-\(letter)"
             style(key)
             key.addTarget(self, action: #selector(letterTapped(_:)), for: .touchUpInside)
             characterKeys.append(key)

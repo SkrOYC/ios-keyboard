@@ -15,3 +15,24 @@ Payload/
 .DS_Store
 .vscode/
 .idea/
+
+# Devenv
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
+# Local signing and device data
+*.p12
+*.p8
+*.mobileprovision
+*.mobiledevicepairing
+*.pem
+.env
+crashes/
+__pycache__/
