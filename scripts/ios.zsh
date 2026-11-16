@@ -65,6 +65,13 @@ compile_tests() {
   tail -n 8 build/compile.log
 }
 
+collect_touch_diagnostics() {
+  /usr/bin/xcrun simctl spawn "$simulator" log show --last 10m --style compact --info --debug \
+    --predicate 'eventMessage BEGINSWITH "Hex keyboard diagnostic:"' \
+    > build/keyboard-touch-diagnostics.log 2>&1 || true
+  tail -n 35 build/keyboard-touch-diagnostics.log
+}
+
 run_tests() {
   simulator=$(cat build/simulator-id.txt)
   rm -rf build/SmokeTests.xcresult
@@ -77,9 +84,11 @@ run_tests() {
     > build/simulator.log 2>&1; then
     /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/simulator-failure.png" || true
     /usr/bin/xcrun xcresulttool export attachments --path build/SmokeTests.xcresult --output-path build/screenshots || true
+    collect_touch_diagnostics
     report_failure build/simulator.log
     return 1
   fi
+  collect_touch_diagnostics
   /usr/bin/xcrun xcresulttool export attachments --help > build/xcresult-export-help.txt
   /usr/bin/xcrun xcresulttool export attachments --path build/SmokeTests.xcresult --output-path build/screenshots
   /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/simulator.png"

@@ -38,6 +38,14 @@ enum DebugLog {
         append("\(Date()) \(line)\n")
     }
 
+    static func trace(_ message: String) {
+        #if DEBUG
+        guard enabled else { return }
+        NSLog("Hex keyboard diagnostic: %@", message)
+        append("trace · \(message)\n")
+        #endif
+    }
+
     /// Physical memory footprint — the number iOS compares against the extension limit.
     static func memoryFootprintMB() -> Double? {
         var info = task_vm_info_data_t()

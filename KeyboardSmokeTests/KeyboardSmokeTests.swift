@@ -39,7 +39,16 @@ final class KeyboardSmokeTests: XCTestCase {
             globe.tap()
         }
         XCTAssertTrue(key("q", in: app).waitForExistence(timeout: 10), app.debugDescription)
+        let before = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        before.name = "Keyboard before gestures"
+        before.lifetime = .keepAlways
+        add(before)
         swipe(key("h", in: app), dx: 0, dy: -1)
+        let after = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        after.name = "Keyboard after capitalize gesture"
+        after.lifetime = .keepAlways
+        add(after)
+        XCTAssertEqual(field.value as? String, "H", app.debugDescription)
         tap(key("i", in: app))
         swipe(key("i", in: app), dx: 1, dy: 0)
         tap(key("q", in: app))

@@ -13,6 +13,7 @@ final class HexKeyboardView: UIView {
         }
     }
 
+    var onTouchTrace: ((String) -> Void)?
     var onAction: ((KeyboardAction) -> Void)?
     private var machine = TouchMachine(geometry: HexGeometry())
     private var shapes: [CAShapeLayer] = []
@@ -57,6 +58,7 @@ final class HexKeyboardView: UIView {
         super.layoutSubviews()
         guard bounds.width > 0, bounds.height > 0 else { return }
         if machine.geometry.width != Double(bounds.width) || machine.geometry.height != Double(bounds.height) {
+            onTouchTrace?("resize to \(Int(bounds.width)) × \(Int(bounds.height))")
             cancelTouches()
             machine.geometry = HexGeometry(width: Double(bounds.width), height: Double(bounds.height))
         }
@@ -121,7 +123,9 @@ final class HexKeyboardView: UIView {
         for touch in touches {
             nextID += 1
             touchIDs[ObjectIdentifier(touch)] = nextID
-            machine.begin(nextID, at: point(touch), time: touch.timestamp)
+            let location = point(touch)
+            onTouchTrace?("begin \(nextID) at \(Int(location.x)), \(Int(location.y)); contacts \(machine.contacts.count)")
+            machine.begin(nextID, at: location, time: touch.timestamp)
         }
         refresh()
     }
@@ -129,7 +133,9 @@ final class HexKeyboardView: UIView {
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
             guard let id = touchIDs[ObjectIdentifier(touch)] else { continue }
-            send(machine.move(id, to: point(touch)))
+            let actions = machine.move(id, to: point(touch))
+            if !actions.isEmpty { onTouchTrace?("move \(id); actions \(actions.count)") }
+            send(actions)
         }
         refresh()
     }
@@ -141,7 +147,9 @@ final class HexKeyboardView: UIView {
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
             guard let id = touchIDs.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
-            send(machine.end(id, at: point(touch), time: touch.timestamp))
+            let actions = machine.end(id, at: point(touch), time: touch.timestamp)
+            onTouchTrace?("end \(id); actions \(actions.count)")
+            send(actions)
         }
         refresh()
     }
@@ -154,6 +162,7 @@ final class HexKeyboardView: UIView {
     }
 
     func cancelTouches() {
+        if !machine.contacts.isEmpty { onTouchTrace?("cancel all; contacts \(machine.contacts.count)") }
         machine.cancelAll()
         touchIDs.removeAll()
         refresh()
