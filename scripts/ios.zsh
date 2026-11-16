@@ -99,8 +99,8 @@ archive_app() {
 package_ipa() {
   app="$PWD/build/KeyboardHost.xcarchive/Products/Applications/KeyboardHost.app"
   test -d "$app/PlugIns/Keyboard.appex"
-  /usr/bin/lipo -verify_arch arm64 "$app/KeyboardHost"
-  /usr/bin/lipo -verify_arch arm64 "$app/PlugIns/Keyboard.appex/Keyboard"
+  /usr/bin/lipo "$app/KeyboardHost" -verify_arch arm64
+  /usr/bin/lipo "$app/PlugIns/Keyboard.appex/Keyboard" -verify_arch arm64
   package_dir=$(mktemp -d "$PWD/build/package.XXXXXX")
   trap 'rm -rf "$package_dir"' EXIT
   mkdir -p "$package_dir/Payload"
