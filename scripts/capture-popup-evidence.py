@@ -1,5 +1,6 @@
 """Capture simulator popups from live UI-probe log markers."""
 
+import os
 import selectors
 import subprocess
 import sys
@@ -14,26 +15,31 @@ def capture(simulator, output_prefix):
         stream = subprocess.Popen([
             "xcrun", "simctl", "spawn", simulator, "log", "stream", "--style", "compact",
             "--level", "debug", "--predicate", 'eventMessage BEGINSWITH "HEX_POPUP_"'
-        ], stdout=subprocess.PIPE, stderr=diagnostic, text=True, bufsize=1)
+        ], stdout=subprocess.PIPE, stderr=diagnostic, bufsize=0)
         selector = selectors.DefaultSelector()
         selector.register(stream.stdout, selectors.EVENT_READ)
+        buffered = b""
         try:
             while pending and time.monotonic() < deadline:
                 if not selector.select(timeout=0.2):
                     continue
-                line = stream.stdout.readline()
-                if not line and stream.poll() is not None:
+                chunk = os.read(stream.stdout.fileno(), 65536)
+                if not chunk and stream.poll() is not None:
                     raise RuntimeError("Simulator log stream stopped before both popup markers")
-                for marker, orientation in list(pending.items()):
-                    if marker not in line:
-                        continue
-                    diagnostic.write(line)
-                    diagnostic.flush()
-                    # The probe holds for eight seconds after resolving its coordinates.
-                    time.sleep(4)
-                    output = f"{output_prefix}-popup-{orientation}.png"
-                    subprocess.run(["xcrun", "simctl", "io", simulator, "screenshot", output], check=True, timeout=30)
-                    del pending[marker]
+                buffered += chunk
+                while b"\n" in buffered:
+                    encoded, buffered = buffered.split(b"\n", 1)
+                    line = encoded.decode(errors="replace")
+                    for marker, orientation in list(pending.items()):
+                        if marker not in line:
+                            continue
+                        diagnostic.write(line + "\n")
+                        diagnostic.flush()
+                        # The probe holds for eight seconds after resolving its coordinates.
+                        time.sleep(4)
+                        output = f"{output_prefix}-popup-{orientation}.png"
+                        subprocess.run(["xcrun", "simctl", "io", simulator, "screenshot", output], check=True, timeout=30)
+                        del pending[marker]
         finally:
             selector.close()
             stream.terminate()

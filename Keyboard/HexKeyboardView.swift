@@ -20,6 +20,9 @@ final class HexKeyboardView: UIView {
     private var labels: [UILabel] = []
     private var keyElements: [KeyAccessibilityElement] = []
     private var touchIDs: [ObjectIdentifier: Int] = [:]
+    private let presetStore = PresetStore()
+    private var pickerPanel: UIStackView?
+    private var pickerChoices: UIStackView?
     private var nextID = 0
     private var holdTimers: [Int: Timer] = [:]
     private var popupShapes: [Int: [CAShapeLayer]] = [:]
@@ -40,6 +43,8 @@ final class HexKeyboardView: UIView {
         isOpaque = false
         isMultipleTouchEnabled = true
         isAccessibilityElement = false
+        machine.order = presetStore.order
+        machine.pickerEnabled = true
         for key in machine.geometry.keys {
             let shape = CAShapeLayer()
             shape.lineJoin = .round
@@ -90,6 +95,7 @@ final class HexKeyboardView: UIView {
             keyElements[key.slot].accessibilityFrameInContainerSpace = rect
         }
         refresh()
+        layoutPicker()
         CATransaction.commit()
     }
 
@@ -116,7 +122,7 @@ final class HexKeyboardView: UIView {
             let element = keyElements[key.slot]
             element.accessibilityIdentifier = key.isLayer ? "key-123" : key.isPeriod ? "key-period" : "key-\(title)"
             element.accessibilityLabel = key.isLayer ? (machine.layer == .letters ? "Symbols" : "Letters") : key.isPeriod ? "Period" : title
-            element.accessibilityHint = key.isPeriod ? (machine.needsGlobe ? "Hold for punctuation and the next keyboard" : "Hold for punctuation") : "Swipe left to delete, right for space, down for return, or up on a letter to capitalize"
+            element.accessibilityHint = key.isLayer ? "Hold to choose a letter order" : key.isPeriod ? (machine.needsGlobe ? "Hold for punctuation and the next keyboard" : "Hold for punctuation") : "Swipe left to delete, right for space, down for return, or up on a letter to capitalize"
             element.accessibilityCustomActions = customActions(for: key)
         }
         refreshPopups()
@@ -135,6 +141,7 @@ final class HexKeyboardView: UIView {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard pickerPanel == nil else { return }
         for touch in touches {
             nextID += 1
             touchIDs[ObjectIdentifier(touch)] = nextID
@@ -196,7 +203,7 @@ final class HexKeyboardView: UIView {
     }
 
     private func scheduleHold(_ id: Int) {
-        guard machine.contacts[id]?.startKey?.isPeriod == true else { return }
+        guard let key = machine.contacts[id]?.startKey, key.isPeriod || key.isLayer else { return }
         let timer = Timer(timeInterval: TouchMachine.holdMilliseconds / 1000, repeats: false) { [weak self] _ in
             guard let self else { return }
             self.holdTimers.removeValue(forKey: id)
@@ -263,6 +270,9 @@ final class HexKeyboardView: UIView {
         if let index = key.letterIndex, machine.layer == .letters {
             actions.append(accessibilityAction("Capitalize", action: .insert(machine.order.letter(at: index).uppercased())))
         }
+        if key.isLayer {
+            actions.append(accessibilityAction("Choose letter order", action: .showPicker))
+        }
         if key.isPeriod {
             for (name, value) in [("Comma", ","), ("Question mark", "?"), ("Exclamation mark", "!"), ("Apostrophe", "'")] {
                 actions.append(accessibilityAction(name, action: .insert(value)))
@@ -278,6 +288,80 @@ final class HexKeyboardView: UIView {
             self.onAction?(action)
             return true
         }
+    }
+
+    func showPicker() {
+        cancelTouches()
+        guard pickerPanel == nil else { return }
+        let panel = UIStackView()
+        panel.axis = .vertical
+        panel.spacing = 8
+        panel.accessibilityViewIsModal = true
+        let title = UILabel()
+        title.text = "Letter order"
+        title.textAlignment = .center
+        title.font = .preferredFont(forTextStyle: .headline)
+        title.accessibilityTraits.insert(.header)
+        title.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        panel.addArrangedSubview(title)
+        let choices = UIStackView()
+        choices.spacing = 6
+        choices.distribution = .fillEqually
+        for order in LetterOrder.allCases {
+            let button = pickerButton(order.title + (order == machine.order ? " ✓" : ""))
+            button.accessibilityIdentifier = "preset-\(order.rawValue)"
+            button.accessibilityLabel = order.title
+            button.accessibilityTraits = order == machine.order ? [.button, .selected] : .button
+            button.addAction(UIAction { [weak self] _ in
+                guard let self else { return }
+                self.presetStore.order = order
+                self.machine.order = order
+                self.hidePicker()
+            }, for: .touchUpInside)
+            choices.addArrangedSubview(button)
+        }
+        panel.addArrangedSubview(choices)
+        let close = pickerButton("Done")
+        close.accessibilityIdentifier = "preset-done"
+        close.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        close.addAction(UIAction { [weak self] _ in self?.hidePicker() }, for: .touchUpInside)
+        panel.addArrangedSubview(close)
+        pickerChoices = choices
+        pickerPanel = panel
+        addSubview(panel)
+        shapes.forEach { $0.isHidden = true }
+        labels.forEach { $0.isHidden = true }
+        accessibilityElements = [panel]
+        layoutPicker()
+        UIAccessibility.post(notification: .layoutChanged, argument: title)
+    }
+
+    private func pickerButton(_ title: String) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setTitle(title, for: .normal)
+        button.titleLabel?.font = .preferredFont(forTextStyle: .body)
+        button.backgroundColor = Glass.keyFill
+        button.layer.cornerRadius = 10
+        return button
+    }
+
+    private func layoutPicker() {
+        guard let panel = pickerPanel else { return }
+        let compact = bounds.height < 220
+        pickerChoices?.axis = compact ? .horizontal : .vertical
+        let height: CGFloat = compact ? 128 : 228
+        panel.frame = CGRect(x: 16, y: max(0, (bounds.height - height) / 2), width: bounds.width - 32, height: height)
+    }
+
+    private func hidePicker() {
+        pickerPanel?.removeFromSuperview()
+        pickerPanel = nil
+        pickerChoices = nil
+        shapes.forEach { $0.isHidden = false }
+        labels.forEach { $0.isHidden = false }
+        accessibilityElements = keyElements
+        refresh()
+        UIAccessibility.post(notification: .layoutChanged, argument: keyElements[3])
     }
 
     override func didMoveToWindow() {

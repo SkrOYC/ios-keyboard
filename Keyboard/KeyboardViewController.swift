@@ -75,7 +75,9 @@ final class KeyboardViewController: UIInputViewController {
             DebugLog.log("next keyboard")
             keyboard.cancelTouches()
             advanceToNextInputMode()
-        case .showPicker: break
+        case .showPicker:
+            DebugLog.log("letter order")
+            keyboard.showPicker()
         }
     }
 }

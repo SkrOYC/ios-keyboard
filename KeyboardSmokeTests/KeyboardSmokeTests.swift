@@ -82,6 +82,22 @@ final class KeyboardSmokeTests: XCTestCase {
         origin.press(forDuration: 0.55)
         assertText("Hi \n123.,", in: field)
 
+        let familiarE = key("e", in: app).frame
+        coordinate(key("123", in: app), in: app).press(forDuration: 0.55)
+        XCTAssertTrue(app.buttons["preset-thumbSplit"].waitForExistence(timeout: 5))
+        let picker = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        picker.name = "Letter order picker"
+        picker.lifetime = .keepAlways
+        add(picker)
+        app.buttons["preset-thumbSplit"].tap()
+        XCTAssertNotEqual(key("e", in: app).frame, familiarE)
+        coordinate(key("123", in: app), in: app).press(forDuration: 0.55)
+        app.buttons["preset-keepEA"].tap()
+        XCTAssertTrue(key("e", in: app).exists)
+        coordinate(key("123", in: app), in: app).press(forDuration: 0.55)
+        app.buttons["preset-familiar"].tap()
+        XCTAssertEqual(key("e", in: app).frame, familiarE)
+
         let portrait = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         portrait.name = "Keyboard in portrait"
         portrait.lifetime = .keepAlways
