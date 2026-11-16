@@ -21,7 +21,10 @@ final class KeyboardLogicTests: XCTestCase {
             let actual = geometry.center(of: key)
             XCTAssertEqual(actual.x, expected.center.x, accuracy: 1e-8)
             XCTAssertEqual(actual.y, expected.center.y, accuracy: 1e-8)
-            for (actual, expected) in zip(geometry.polygon(of: key), expected.polygon) {
+            let polygon = geometry.polygon(of: key)
+            XCTAssertEqual(polygon.count, 6)
+            XCTAssertEqual(polygon.count, expected.polygon.count)
+            for (actual, expected) in zip(polygon, expected.polygon) {
                 XCTAssertEqual(actual.x, expected.x, accuracy: 1e-8)
                 XCTAssertEqual(actual.y, expected.y, accuracy: 1e-8)
             }

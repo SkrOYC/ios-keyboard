@@ -73,6 +73,7 @@ jobs:
             build/*.log
             build/*.xcresult
             build/*.png
+            build/screenshots/
             build/*.json
             build/*.txt
           if-no-files-found: ignore

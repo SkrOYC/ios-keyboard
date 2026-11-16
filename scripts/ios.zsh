@@ -76,9 +76,12 @@ run_tests() {
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
     > build/simulator.log 2>&1; then
     /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/simulator-failure.png" || true
+    /usr/bin/xcrun xcresulttool export attachments --path build/SmokeTests.xcresult --output-path build/screenshots || true
     report_failure build/simulator.log
     return 1
   fi
+  /usr/bin/xcrun xcresulttool export attachments --help > build/xcresult-export-help.txt
+  /usr/bin/xcrun xcresulttool export attachments --path build/SmokeTests.xcresult --output-path build/screenshots
   /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/simulator.png"
   tail -n 25 build/simulator.log
 }
