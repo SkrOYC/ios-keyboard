@@ -31,13 +31,7 @@ final class KeyboardSmokeTests: XCTestCase {
         app.activate()
         field.tap()
         dismissSystemKeyboardIntroduction(in: app)
-        for _ in 0..<5 {
-            dismissSystemKeyboardIntroduction(in: app)
-            if key("q", in: app).waitForExistence(timeout: 3) { break }
-            let globe = app.buttons["Next keyboard"].firstMatch
-            XCTAssertTrue(globe.waitForExistence(timeout: 5), app.debugDescription)
-            globe.tap()
-        }
+        selectKeyboardExtension(in: app)
         XCTAssertTrue(key("q", in: app).waitForExistence(timeout: 10), app.debugDescription)
         let firstKey = key("h", in: app)
         let inputReady = expectation(for: NSPredicate { _, _ in firstKey.isHittable }, evaluatedWith: firstKey)
@@ -125,6 +119,18 @@ final class KeyboardSmokeTests: XCTestCase {
         landscape.name = "Keyboard in landscape"
         landscape.lifetime = .keepAlways
         add(landscape)
+        let landscapeText = field.value as? String ?? ""
+        let landscapeE = key("e", in: app).frame
+        coordinate(key("123", in: app), in: app).press(forDuration: 0.55)
+        let done = app.buttons["preset-done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        let compactPicker = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        compactPicker.name = "Letter order picker in landscape"
+        compactPicker.lifetime = .keepAlways
+        add(compactPicker)
+        done.tap()
+        assertText(landscapeText, in: field)
+        XCTAssertEqual(key("e", in: app).frame, landscapeE)
         let previous = field.value as? String ?? ""
         for _ in 0..<6 { tap(key("q", in: app)) }
         assertText(previous + String(repeating: "q", count: 6), in: field)
@@ -156,6 +162,23 @@ final class KeyboardSmokeTests: XCTestCase {
             XCTAssertTrue(button.waitForExistence(timeout: 5))
             button.tap()
         }
+    }
+
+    private func selectKeyboardExtension(in app: XCUIApplication) {
+        if key("q", in: app).waitForExistence(timeout: 3) { return }
+        let globe = app.buttons["Next keyboard"].firstMatch
+        XCTAssertTrue(globe.waitForExistence(timeout: 5), app.debugDescription)
+        // Native iPad keyboard elements can have valid frames but invalid AX hit points.
+        coordinate(globe, in: app).press(forDuration: 1)
+        let menu = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        menu.name = "System keyboard selection menu"
+        menu.lifetime = .keepAlways
+        add(menu)
+        let entry = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label == %@ OR label == %@", "Keyboard", "Keyboard Host")
+        ).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 5), app.debugDescription)
+        coordinate(entry, in: app).tap()
     }
 
     private func tap(_ key: XCUIElement) {

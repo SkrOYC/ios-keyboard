@@ -50,7 +50,7 @@ These decisions define the implementation and its verification. Final tablet and
 - D46: Remove detailed touch traces because the shipped keyboard needs only bounded action and memory diagnostics.
 - D47: Cache simulator evidence under ignored build/simulator-cache because inspection files must remain available without entering Git.
 - D48: Preserve the prototype script and remove personal attribution from its prose because spec parity and anonymous public text are both required.
-- D49: Use neutral commit metadata because the change history must not publish personal identifiers.
+- D49: Use the host-wide Git identity because the content PII rule does not change author configuration.
 - D50: Defer publishing the movie-clock correction because its locally tested timing still needs macOS frame verification.
 
 ## Recovery decisions prepared locally

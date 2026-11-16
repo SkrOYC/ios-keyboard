@@ -20,6 +20,26 @@ def main():
     workflow = yaml.safe_load(Path(".github/workflows/build.yml").read_text())
     assert workflow["jobs"]["build"]["runs-on"] == "macos-26"
     assert workflow["jobs"]["build"]["timeout-minutes"] == 45
+    build_job = workflow["jobs"]["build"]
+    assert build_job["strategy"] == {"fail-fast": False, "matrix": {"probe": ["phone", "tablet"]}}
+    steps = {step.get("name"): step for step in build_job["steps"]}
+    for name, command, probe in (
+        ("Boot matching iOS simulator", "ios-simulator", "phone"),
+        ("Compile host, keyboard, and UI tests", "ios-test-build", "phone"),
+        ("Enable and exercise the keyboard in Settings", "ios-test-run", "phone"),
+        ("Exercise Release keyboard on iPad", "ios-ipad-test", "tablet"),
+        ("Archive unsigned device app", "ios-archive", "phone"),
+        ("Package and verify device IPA", "ios-package", "phone"),
+    ):
+        step = steps[name]
+        assert step["run"] == "direnv exec . " + command
+        assert step["if"] == "matrix.probe == '" + probe + "'"
+        assert not step.get("continue-on-error", False)
+    assert not build_job.get("continue-on-error", False)
+    evidence = steps["Upload logs and simulator evidence"]
+    assert evidence["if"] == "always()"
+    assert evidence["with"]["name"] == "${{ matrix.probe == 'phone' && 'lifecycle-evidence' || 'lifecycle-evidence-tablet' }}"
+    assert steps["Upload verified IPA"]["if"] == "matrix.probe == 'phone'"
     assert spec["targets"]["KeyboardHost"]["dependencies"] == [
         {"target": "Keyboard", "embed": True}
     ]
