@@ -8,6 +8,7 @@ final class KeyboardSmokeTests: XCTestCase {
         let field = app.descendants(matching: .any)["keyboard-sample"].firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 15))
         field.tap()
+        dismissSystemKeyboardIntroduction(in: app)
 
         let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
         settings.launch()
@@ -29,8 +30,10 @@ final class KeyboardSmokeTests: XCTestCase {
 
         app.activate()
         field.tap()
+        dismissSystemKeyboardIntroduction(in: app)
         for _ in 0..<5 {
-            if key("q", in: app).exists { break }
+            dismissSystemKeyboardIntroduction(in: app)
+            if key("q", in: app).waitForExistence(timeout: 3) { break }
             let globe = app.buttons["Next keyboard"].firstMatch
             XCTAssertTrue(globe.waitForExistence(timeout: 5), app.debugDescription)
             globe.tap()
@@ -54,6 +57,15 @@ final class KeyboardSmokeTests: XCTestCase {
         landscape.lifetime = .keepAlways
         add(landscape)
         XCUIDevice.shared.orientation = .portrait
+    }
+
+    private func dismissSystemKeyboardIntroduction(in app: XCUIApplication) {
+        let introduction = app.otherElements["UIContinuousPathIntroductionView"]
+        if introduction.exists {
+            let button = app.buttons["Continue"].firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 5))
+            button.tap()
+        }
     }
 
     private func key(_ label: String, in app: XCUIApplication) -> XCUIElement {
