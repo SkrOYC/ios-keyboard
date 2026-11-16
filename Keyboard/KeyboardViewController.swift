@@ -18,9 +18,6 @@ final class KeyboardViewController: UIInputViewController {
         debugLabel = DebugLog.makeLabel()
         debugLabel?.isAccessibilityElement = false
         if let debugLabel { view.addSubview(debugLabel) }
-        #if DEBUG
-        keyboard.onTouchTrace = { DebugLog.trace($0) }
-        #endif
         keyboard.onAction = { [weak self] action in self?.perform(action) }
         DebugLog.log("ready · hex 7×4")
     }
@@ -34,24 +31,21 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         keyboard.needsGlobe = needsInputModeSwitchKey
-        let width = min(view.bounds.width, 700)
-        guard width > 0 else { return }
-        let landscape = traitCollection.verticalSizeClass == .compact
-        let keyHeight = landscape ? CGFloat(180) : min(320, width * 883 / 1320)
-        let height = keyHeight + stripHeight
+        guard view.bounds.width > 0 else { return }
+        let layout = HexLayout(
+            containerWidth: Double(view.bounds.width),
+            leadingInset: Double(view.safeAreaInsets.left),
+            trailingInset: Double(view.safeAreaInsets.right),
+            compactHeight: traitCollection.verticalSizeClass == .compact,
+            tablet: traitCollection.userInterfaceIdiom == .pad
+        )
+        let height = CGFloat(layout.height) + stripHeight
         if heightConstraint.constant != height {
             heightConstraint.constant = height
             preferredContentSize.height = height
         }
-        keyboard.frame = CGRect(x: (view.bounds.width - width) / 2, y: stripHeight, width: width, height: keyHeight)
+        keyboard.frame = CGRect(x: layout.originX, y: Double(stripHeight), width: layout.width, height: layout.height)
         debugLabel?.frame = CGRect(x: 12, y: 4, width: view.bounds.width - 24, height: 14)
-        #if DEBUG
-        let center = CGPoint(x: keyboard.bounds.midX, y: keyboard.bounds.midY)
-        let windowPoint = keyboard.convert(center, to: view.window)
-        let hit = view.window?.hitTest(windowPoint, with: nil)
-        let hitName = hit.map { String(describing: type(of: $0)) } ?? "none"
-        DebugLog.trace("layout root \(Int(view.bounds.width)) × \(Int(view.bounds.height)); keys \(Int(keyboard.bounds.width)) × \(Int(keyboard.bounds.height)); enabled \(view.isUserInteractionEnabled), \(keyboard.isUserInteractionEnabled); center hit \(hitName)")
-        #endif
     }
 
     override func viewWillDisappear(_ animated: Bool) {

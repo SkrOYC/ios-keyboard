@@ -3,6 +3,7 @@
 import argparse
 import json
 import plistlib
+import re
 import stat
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -22,6 +23,9 @@ def verify(path):
             parts = PurePosixPath(name).parts
             require(parts and parts[0] == "Payload" and ".." not in parts,
                     f"Unexpected archive path: {name}")
+            require(not any(part.endswith(".xctest") or part in
+                            {"XCTest.framework", "XCTestCore.framework", "XCUIAutomation.framework"}
+                            for part in parts), "Test tooling must not be packaged in the device IPA")
             require(not name.endswith("embedded.mobileprovision"),
                     "Expected an unsigned IPA without a provisioning profile")
         roots = {PurePosixPath(name).parts[1] for name in names
@@ -37,7 +41,14 @@ def verify(path):
                 "Keyboard bundle ID must be prefixed by the host bundle ID")
         for key in ("CFBundleShortVersionString", "CFBundleVersion"):
             require(host[key] == keyboard[key], f"Host and keyboard disagree on {key}")
+        version = host["CFBundleShortVersionString"]
+        build = host["CFBundleVersion"]
+        require(isinstance(version, str) and re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version),
+                "Expected a three-component marketing version")
+        require(isinstance(build, str) and build.isdecimal() and int(build) > 0,
+                "Expected a positive numeric build number")
         for root, info in ((host_root, host), (keyboard_root, keyboard)):
+            require("NSAppTransportSecurity" not in info, "Network exceptions are not permitted")
             require(info["CFBundleSupportedPlatforms"] == ["iPhoneOS"],
                     "IPA must contain device binaries, not simulator binaries")
             require(info["MinimumOSVersion"] == "26.0", "Expected iOS 26.0 minimum")

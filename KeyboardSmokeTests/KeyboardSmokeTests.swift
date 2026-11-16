@@ -59,6 +59,15 @@ final class KeyboardSmokeTests: XCTestCase {
         swipe(key("h", in: app), dx: 0, dy: 1)
         assertText("Hi \n", in: field)
 
+        let wFrame = key("w", in: app).frame
+        let qFrame = key("q", in: app).frame
+        let appFrame = app.frame
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: wFrame.midX - appFrame.minX,
+            dy: (wFrame.midY + qFrame.midY) / 2 - appFrame.minY
+        )).tap()
+        assertText("Hi \n", in: field)
+
         tap(key("123", in: app))
         XCTAssertTrue(key("1", in: app).waitForExistence(timeout: 5))
         tap(key("1", in: app))
@@ -116,6 +125,19 @@ final class KeyboardSmokeTests: XCTestCase {
         landscape.name = "Keyboard in landscape"
         landscape.lifetime = .keepAlways
         add(landscape)
+        let previous = field.value as? String ?? ""
+        for _ in 0..<6 { tap(key("q", in: app)) }
+        assertText(previous + String(repeating: "q", count: 6), in: field)
+        let beforeDelete = (field.value as? String ?? "").count
+        let repeatKey = key("h", in: app)
+        let repeatStart = coordinate(repeatKey, in: app)
+        repeatStart.press(forDuration: 0.05, thenDragTo: repeatStart.withOffset(
+            CGVector(dx: -repeatKey.frame.width * 2.2, dy: 0)
+        ))
+        let repeated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (field.value as? String ?? "").count <= beforeDelete - 2
+        }, object: field)
+        XCTAssertEqual(XCTWaiter.wait(for: [repeated], timeout: 5), .completed)
         XCUIDevice.shared.orientation = .portrait
     }
 

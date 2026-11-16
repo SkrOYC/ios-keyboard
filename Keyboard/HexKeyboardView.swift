@@ -13,7 +13,6 @@ final class HexKeyboardView: UIView {
         }
     }
 
-    var onTouchTrace: ((String) -> Void)?
     var onAction: ((KeyboardAction) -> Void)?
     private var machine = TouchMachine(geometry: HexGeometry())
     private var shapes: [CAShapeLayer] = []
@@ -75,7 +74,6 @@ final class HexKeyboardView: UIView {
         super.layoutSubviews()
         guard bounds.width > 0, bounds.height > 0 else { return }
         if machine.geometry.width != Double(bounds.width) || machine.geometry.height != Double(bounds.height) {
-            onTouchTrace?("resize to \(Int(bounds.width)) × \(Int(bounds.height))")
             cancelTouches()
             machine.geometry = HexGeometry(width: Double(bounds.width), height: Double(bounds.height))
         }
@@ -91,7 +89,6 @@ final class HexKeyboardView: UIView {
             let rect = CGRect(x: CGFloat(center.x) - radius, y: CGFloat(center.y) - apothem,
                               width: 2 * radius, height: 2 * apothem)
             labels[key.slot].frame = rect
-            labels[key.slot].font = .systemFont(ofSize: min(26, apothem * (key.letterIndex == nil ? 0.48 : 0.65)), weight: .medium)
             keyElements[key.slot].accessibilityFrameInContainerSpace = rect
         }
         refresh()
@@ -116,6 +113,11 @@ final class HexKeyboardView: UIView {
         for key in machine.geometry.keys {
             let title = keyLabel(key, layer: machine.layer, order: machine.order)
             labels[key.slot].text = title
+            let number = machine.layer == .symbols && "0123456789*#".contains(title)
+            let units: CGFloat = key.letterIndex == nil ? 44 : number ? 64 : 58
+            let verticalLimit: CGFloat = key.letterIndex == nil ? 0.85 : 1.1
+            let size = min(26, units * CGFloat(machine.scale), CGFloat(machine.geometry.apothem) * verticalLimit)
+            labels[key.slot].font = .systemFont(ofSize: size, weight: number ? .semibold : .medium)
             let fill = pressed.contains(key.slot) ? Glass.keyPressedFill : Glass.keyFill
             shapes[key.slot].fillColor = fill.resolvedColor(with: traitCollection).cgColor
             shapes[key.slot].strokeColor = fill.resolvedColor(with: traitCollection).cgColor
@@ -146,7 +148,6 @@ final class HexKeyboardView: UIView {
             nextID += 1
             touchIDs[ObjectIdentifier(touch)] = nextID
             let location = point(touch)
-            onTouchTrace?("begin \(nextID) at \(Int(location.x)), \(Int(location.y)); contacts \(machine.contacts.count)")
             machine.begin(nextID, at: location, time: touch.timestamp)
             scheduleHold(nextID)
         }
@@ -157,7 +158,6 @@ final class HexKeyboardView: UIView {
         for touch in touches {
             guard let id = touchIDs[ObjectIdentifier(touch)] else { continue }
             let actions = machine.move(id, to: point(touch))
-            if !actions.isEmpty { onTouchTrace?("move \(id); actions \(actions.count)") }
             send(actions)
             if machine.contacts[id]?.holdAllowed == false { holdTimers.removeValue(forKey: id)?.invalidate() }
         }
@@ -173,11 +173,7 @@ final class HexKeyboardView: UIView {
             guard let id = touchIDs.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
             holdTimers.removeValue(forKey: id)?.invalidate()
             let location = point(touch)
-            if let popup = machine.contacts[id]?.popup {
-                onTouchTrace?("popup release at \(Int(location.x)), \(Int(location.y)); choice \(String(describing: popup.selection(at: location)))")
-            }
             let actions = machine.end(id, at: location, time: touch.timestamp)
-            onTouchTrace?("end \(id); actions \(actions.count)")
             send(actions)
         }
         refresh()
@@ -196,7 +192,6 @@ final class HexKeyboardView: UIView {
     func cancelTouches() {
         for timer in holdTimers.values { timer.invalidate() }
         holdTimers.removeAll()
-        if !machine.contacts.isEmpty { onTouchTrace?("cancel all; contacts \(machine.contacts.count)") }
         machine.cancelAll()
         touchIDs.removeAll()
         refresh()

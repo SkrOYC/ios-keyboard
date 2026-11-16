@@ -58,6 +58,9 @@ jobs:
       - name: Enable and exercise the keyboard in Settings
         run: direnv exec . ios-test-run
 
+      - name: Exercise Release keyboard on iPad
+        run: direnv exec . ios-ipad-test
+
       - name: Archive unsigned device app
         run: direnv exec . ios-archive
 
@@ -73,6 +76,7 @@ jobs:
             build/*.log
             build/*.xcresult
             build/*.png
+            build/*.mp4
             build/screenshots/
             build/*.json
             build/*.txt

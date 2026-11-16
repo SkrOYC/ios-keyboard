@@ -1,6 +1,7 @@
 """Check the source configuration before spending time on a macOS build."""
 
 import plistlib
+import re
 from pathlib import Path
 
 import yaml
@@ -11,6 +12,14 @@ def main():
     settings = spec["settings"]["base"]
     assert settings["IPHONEOS_DEPLOYMENT_TARGET"] == "26.0"
     assert settings["DEVELOPMENT_TEAM"] == ""
+    assert settings["MARKETING_VERSION"] == "0.3.0"
+    assert settings["CURRENT_PROJECT_VERSION"] == "3"
+    assert settings["TARGETED_DEVICE_FAMILY"] == "1,2"
+    assert spec["options"]["deploymentTarget"]["iOS"] == "26.0"
+    assert spec["targets"]["Keyboard"]["settings"]["base"]["APPLICATION_EXTENSION_API_ONLY"] is True
+    workflow = yaml.safe_load(Path(".github/workflows/build.yml").read_text())
+    assert workflow["jobs"]["build"]["runs-on"] == "macos-26"
+    assert workflow["jobs"]["build"]["timeout-minutes"] == 45
     assert spec["targets"]["KeyboardHost"]["dependencies"] == [
         {"target": "Keyboard", "embed": True}
     ]
@@ -20,6 +29,8 @@ def main():
     for target in ("KeyboardHost", "Keyboard"):
         with Path(target, "Info.plist").open("rb") as source:
             info = plistlib.load(source)
+        assert "NSAppTransportSecurity" not in info
+        assert "com.apple.security.application-groups" not in Path(target, "Info.plist").read_text()
         assert info["CFBundleIdentifier"] == "$(PRODUCT_BUNDLE_IDENTIFIER)"
         assert info["CFBundleVersion"] == "$(CURRENT_PROJECT_VERSION)"
         if target == "Keyboard":
@@ -38,6 +49,11 @@ def main():
     assert "KeyboardViewTests" in spec["targets"]["KeyboardHost"]["scheme"]["testTargets"]
     for source in Path("Keyboard/Core").glob("*.swift"):
         assert "import UIKit" not in source.read_text(), "Core must remain independent of UIKit"
+        assert re.findall(r"^import ([A-Za-z0-9_]+)$", source.read_text(), re.MULTILINE) == ["Foundation"]
+    forbidden = re.compile(r"\b(URLSession|NWConnection|CFNetwork|UIImpactFeedbackGenerator|UISelectionFeedbackGenerator|UINotificationFeedbackGenerator|UILexicon|UITextChecker)\b")
+    for directory in ("Keyboard", "KeyboardHost"):
+        for source in Path(directory).rglob("*.swift"):
+            assert not forbidden.search(source.read_text()), "Network, haptic, and correction APIs are out of scope"
     assert "CODE_SIGN_ENTITLEMENTS" not in Path("project.yml").read_text()
     print("Source configuration: host, embedded keyboard, bundle IDs, and plists OK")
 
