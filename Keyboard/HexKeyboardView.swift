@@ -24,6 +24,7 @@ final class HexKeyboardView: UIView {
     private var pickerChoices: UIStackView?
     private var nextID = 0
     private var holdTimers: [Int: Timer] = [:]
+    private var popupBackdrops: [Int: [CAShapeLayer]] = [:]
     private var popupShapes: [Int: [CAShapeLayer]] = [:]
     private var popupLabels: [Int: [UILabel]] = [:]
 
@@ -212,22 +213,29 @@ final class HexKeyboardView: UIView {
     private func refreshPopups() {
         let active = Set(machine.contacts.compactMap { $0.value.popup == nil ? nil : $0.key })
         for id in Array(popupShapes.keys) where !active.contains(id) {
+            popupBackdrops.removeValue(forKey: id)?.forEach { $0.removeFromSuperlayer() }
             popupShapes.removeValue(forKey: id)?.forEach { $0.removeFromSuperlayer() }
             popupLabels.removeValue(forKey: id)?.forEach { $0.removeFromSuperview() }
         }
         for id in active.sorted() {
             guard let contact = machine.contacts[id], let popup = contact.popup else { continue }
             if popupShapes[id] == nil {
+                var backdrops: [CAShapeLayer] = []
                 popupShapes[id] = popup.entries.map { _ in
+                    let backdrop = CAShapeLayer()
+                    backdrop.lineJoin = .round
+                    backdrop.shadowColor = UIColor.black.cgColor
+                    backdrop.shadowOpacity = 0.2
+                    backdrop.shadowRadius = 3
+                    backdrop.shadowOffset = CGSize(width: 0, height: 2)
+                    layer.addSublayer(backdrop)
+                    backdrops.append(backdrop)
                     let shape = CAShapeLayer()
                     shape.lineJoin = .round
-                    shape.shadowColor = UIColor.black.cgColor
-                    shape.shadowOpacity = 0.2
-                    shape.shadowRadius = 3
-                    shape.shadowOffset = CGSize(width: 0, height: 2)
                     layer.addSublayer(shape)
                     return shape
                 }
+                popupBackdrops[id] = backdrops
                 popupLabels[id] = popup.entries.map { _ in
                     let label = UILabel()
                     label.textAlignment = .center
@@ -242,6 +250,13 @@ final class HexKeyboardView: UIView {
                 let shape = popupShapes[id]![index], label = popupLabels[id]![index]
                 shape.path = path(machine.geometry.polygon(center: entry.center, apothem: popup.apothem - machine.geometry.stroke / 2)).cgPath
                 shape.lineWidth = CGFloat(machine.geometry.stroke)
+                // Keep underlying key glyphs out of the translucent popup surface.
+                let backdrop = popupBackdrops[id]![index]
+                backdrop.path = shape.path
+                backdrop.lineWidth = shape.lineWidth
+                let background = UIColor.secondarySystemBackground.resolvedColor(with: traitCollection).cgColor
+                backdrop.fillColor = background
+                backdrop.strokeColor = background
                 let fill = entry.choice == selected ? Glass.keyPressedFill : Glass.keyFill
                 shape.fillColor = fill.resolvedColor(with: traitCollection).cgColor
                 shape.strokeColor = fill.resolvedColor(with: traitCollection).cgColor
