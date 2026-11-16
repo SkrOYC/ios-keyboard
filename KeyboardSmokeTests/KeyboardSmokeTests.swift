@@ -51,20 +51,20 @@ final class KeyboardSmokeTests: XCTestCase {
         after.name = "Keyboard after capitalize gesture"
         after.lifetime = .keepAlways
         add(after)
-        XCTAssertEqual(field.value as? String, "H", app.debugDescription)
+        assertText("H", in: field)
         tap(key("i", in: app))
         swipe(key("i", in: app), dx: 1, dy: 0)
         tap(key("q", in: app))
         swipe(key("q", in: app), dx: -1, dy: 0)
         swipe(key("h", in: app), dx: 0, dy: 1)
-        XCTAssertEqual(field.value as? String, "Hi \n")
+        assertText("Hi \n", in: field)
 
         tap(key("123", in: app))
         XCTAssertTrue(key("1", in: app).waitForExistence(timeout: 5))
         tap(key("1", in: app))
         tap(key("2", in: app))
         tap(key("3", in: app))
-        XCTAssertEqual(field.value as? String, "Hi \n123")
+        assertText("Hi \n123", in: field)
         let symbols = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         symbols.name = "Keyboard symbols"
         symbols.lifetime = .keepAlways
@@ -72,15 +72,15 @@ final class KeyboardSmokeTests: XCTestCase {
         tap(key("123", in: app))
         let period = key("period", in: app)
         tap(period)
-        XCTAssertEqual(field.value as? String, "Hi \n123.")
-        let origin = period.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        assertText("Hi \n123.", in: field)
+        let origin = coordinate(period, in: app)
         let rowPitch = period.frame.midY - key("k", in: app).frame.midY
         let comma = origin.withOffset(CGVector(dx: 0, dy: -1.2 * rowPitch))
         NSLog("HEX_POPUP_PORTRAIT")
-        origin.press(forDuration: 4, thenDragTo: comma)
-        XCTAssertEqual(field.value as? String, "Hi \n123.,")
+        origin.press(forDuration: 8, thenDragTo: comma)
+        assertText("Hi \n123.,", in: field)
         origin.press(forDuration: 0.55)
-        XCTAssertEqual(field.value as? String, "Hi \n123.,")
+        assertText("Hi \n123.,", in: field)
 
         let portrait = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         portrait.name = "Keyboard in portrait"
@@ -92,10 +92,10 @@ final class KeyboardSmokeTests: XCTestCase {
         wait(for: [rotated], timeout: 15)
         XCTAssertTrue(key("q", in: app).waitForExistence(timeout: 10))
         tap(key("q", in: app))
-        XCTAssertEqual(field.value as? String, "Hi \n123.,q")
+        assertText("Hi \n123.,q", in: field)
         NSLog("HEX_POPUP_LANDSCAPE")
-        key("period", in: app).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 4)
-        XCTAssertEqual(field.value as? String, "Hi \n123.,q")
+        coordinate(key("period", in: app), in: app).press(forDuration: 8)
+        assertText("Hi \n123.,q", in: field)
         let landscape = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         landscape.name = "Keyboard in landscape"
         landscape.lifetime = .keepAlways
@@ -104,7 +104,7 @@ final class KeyboardSmokeTests: XCTestCase {
     }
 
     private func swipe(_ key: XCUIElement, dx: CGFloat, dy: CGFloat) {
-        let start = key.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let start = coordinate(key, in: XCUIApplication())
         // Half a key's width exceeds the scaled 70-unit threshold without repeating delete.
         let travel = key.frame.width * 0.5
         let end = start.withOffset(CGVector(dx: dx * travel, dy: dy * travel))
@@ -121,7 +121,23 @@ final class KeyboardSmokeTests: XCTestCase {
     }
 
     private func tap(_ key: XCUIElement) {
-        key.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        coordinate(key, in: XCUIApplication()).tap()
+    }
+
+    private func coordinate(_ key: XCUIElement, in app: XCUIApplication) -> XCUICoordinate {
+        let frame = key.frame
+        let appFrame = app.frame
+        return app.coordinate(withNormalizedOffset: .zero).withOffset(
+            CGVector(dx: frame.midX - appFrame.minX, dy: frame.midY - appFrame.minY)
+        )
+    }
+
+    private func assertText(_ expected: String, in field: XCUIElement) {
+        let updated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            field.value as? String == expected
+        }, object: field)
+        _ = XCTWaiter.wait(for: [updated], timeout: 5)
+        XCTAssertEqual(field.value as? String, expected)
     }
 
     private func key(_ label: String, in app: XCUIApplication) -> XCUIElement {

@@ -76,7 +76,7 @@ run_tests() {
   simulator=$(cat build/simulator-id.txt)
   rm -rf build/SmokeTests.xcresult
   local popup_capture_pid
-  python3 scripts/capture-popup-evidence.py "$simulator" build/simulator.log build/SmokeTests &
+  python3 scripts/capture-popup-evidence.py "$simulator" build/SmokeTests &
   popup_capture_pid=$!
   if ! /usr/bin/xcodebuild test-without-building \
     -project KeyboardHost.xcodeproj -scheme KeyboardHost -configuration Debug \

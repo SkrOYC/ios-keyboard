@@ -165,7 +165,11 @@ final class HexKeyboardView: UIView {
         for touch in touches {
             guard let id = touchIDs.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
             holdTimers.removeValue(forKey: id)?.invalidate()
-            let actions = machine.end(id, at: point(touch), time: touch.timestamp)
+            let location = point(touch)
+            if let popup = machine.contacts[id]?.popup {
+                onTouchTrace?("popup release at \(Int(location.x)), \(Int(location.y)); choice \(String(describing: popup.selection(at: location)))")
+            }
+            let actions = machine.end(id, at: location, time: touch.timestamp)
             onTouchTrace?("end \(id); actions \(actions.count)")
             send(actions)
         }

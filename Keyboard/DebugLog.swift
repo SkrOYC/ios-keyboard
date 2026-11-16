@@ -35,6 +35,7 @@ enum DebugLog {
         let mem = memoryFootprintMB().map { String(format: "%.1f MB", $0) } ?? "? MB"
         let line = "\(mem) · \(message)"
         for label in labels.allObjects { label.text = line }
+        trace("event \(message)")
         append("\(Date()) \(line)\n")
     }
 
