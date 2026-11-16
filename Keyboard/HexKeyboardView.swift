@@ -17,6 +17,7 @@ final class HexKeyboardView: UIView {
     private var machine = TouchMachine(geometry: HexGeometry())
     private var shapes: [CAShapeLayer] = []
     private var labels: [UILabel] = []
+    private var glassSurfaces: [Int: HexGlassKeyView] = [:]
     private var keyElements: [KeyAccessibilityElement] = []
     private var touchIDs: [ObjectIdentifier: Int] = [:]
     private let presetStore = PresetStore()
@@ -50,12 +51,19 @@ final class HexKeyboardView: UIView {
             shape.lineJoin = .round
             layer.addSublayer(shape)
             shapes.append(shape)
-            let label = UILabel()
+            // Neighbouring vertical and diagonal keys exercise native hex masking first.
+            let surface = [0, 1, 4].contains(key.slot) ? HexGlassKeyView() : nil
+            if let surface {
+                glassSurfaces[key.slot] = surface
+                addSubview(surface)
+                shape.isHidden = true
+            }
+            let label = surface?.label ?? UILabel()
             label.textAlignment = .center
             label.textColor = .label
             label.isUserInteractionEnabled = false
             label.isAccessibilityElement = false
-            addSubview(label)
+            if surface == nil { addSubview(label) }
             labels.append(label)
             let element = KeyAccessibilityElement(accessibilityContainer: self)
             element.isAccessibilityElement = true
@@ -90,6 +98,7 @@ final class HexKeyboardView: UIView {
             let rect = CGRect(x: CGFloat(center.x) - radius, y: CGFloat(center.y) - apothem,
                               width: 2 * radius, height: 2 * apothem)
             labels[key.slot].frame = rect
+            glassSurfaces[key.slot]?.update(polygon: g.polygon(of: key), stroke: g.stroke)
             keyElements[key.slot].accessibilityFrameInContainerSpace = rect
         }
         refresh()
@@ -122,6 +131,7 @@ final class HexKeyboardView: UIView {
             let fill = pressed.contains(key.slot) ? Glass.keyPressedFill : Glass.keyFill
             shapes[key.slot].fillColor = fill.resolvedColor(with: traitCollection).cgColor
             shapes[key.slot].strokeColor = fill.resolvedColor(with: traitCollection).cgColor
+            glassSurfaces[key.slot]?.setPressed(pressed.contains(key.slot))
             let element = keyElements[key.slot]
             element.accessibilityIdentifier = key.isLayer ? "key-123" : key.isPeriod ? "key-period" : "key-\(title)"
             element.accessibilityLabel = key.isLayer ? (machine.layer == .letters ? "Symbols" : "Letters") : key.isPeriod ? "Period" : title
@@ -340,6 +350,7 @@ final class HexKeyboardView: UIView {
         pickerPanel = panel
         addSubview(panel)
         shapes.forEach { $0.isHidden = true }
+        glassSurfaces.values.forEach { $0.isHidden = true }
         labels.forEach { $0.isHidden = true }
         accessibilityElements = [panel]
         layoutPicker()
@@ -367,7 +378,8 @@ final class HexKeyboardView: UIView {
         pickerPanel?.removeFromSuperview()
         pickerPanel = nil
         pickerChoices = nil
-        shapes.forEach { $0.isHidden = false }
+        for (index, shape) in shapes.enumerated() { shape.isHidden = glassSurfaces[index] != nil }
+        glassSurfaces.values.forEach { $0.isHidden = false }
         labels.forEach { $0.isHidden = false }
         accessibilityElements = keyElements
         refresh()

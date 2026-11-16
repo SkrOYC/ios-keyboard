@@ -52,4 +52,22 @@ final class KeyboardViewTests: XCTestCase {
         XCTAssertTrue(toggle.accessibilityActivate())
         XCTAssertTrue(elements.contains { $0.accessibilityIdentifier == "key-h" })
     }
+
+    @MainActor
+    func testDecorativeSurfacesLeaveTouchesWithKeyboardAfterResize() {
+        let view = keyboard()
+        for size in [CGSize(width: 390, height: 883 * 390 / 1320), CGSize(width: 844, height: 180)] {
+            view.frame.size = size
+            view.setNeedsLayout()
+            view.layoutIfNeeded()
+            let geometry = HexGeometry(width: Double(size.width), height: Double(size.height))
+            for key in geometry.keys {
+                let center = geometry.center(of: key)
+                XCTAssertTrue(view.hitTest(CGPoint(x: center.x, y: center.y), with: nil) === view)
+            }
+            let first = geometry.center(of: HexKey(slot: 0))
+            let second = geometry.center(of: HexKey(slot: 1))
+            XCTAssertTrue(view.hitTest(CGPoint(x: first.x, y: (first.y + second.y) / 2), with: nil) === view)
+        }
+    }
 }

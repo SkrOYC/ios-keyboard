@@ -64,7 +64,7 @@ def main():
     renderer = spec["targets"]["KeyboardViewTests"]
     assert renderer["type"] == "bundle.unit-test"
     assert {source["path"] for source in renderer["sources"]} == {
-        "Keyboard/Core", "Keyboard/HexKeyboardView.swift", "KeyboardViewTests"
+        "Keyboard/Core", "Keyboard/HexKeyboardView.swift", "Keyboard/HexGlassKeyView.swift", "KeyboardViewTests"
     }
     assert "KeyboardViewTests" in spec["targets"]["KeyboardHost"]["scheme"]["testTargets"]
     for source in Path("Keyboard/Core").glob("*.swift"):
