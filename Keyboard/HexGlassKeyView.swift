@@ -4,7 +4,7 @@ import UIKit
 final class HexGlassKeyView: UIView {
     let label = UILabel()
     private let glass = UIVisualEffectView(effect: UIGlassEffect(style: .regular))
-    private let maskView = HexMaterialMaskView()
+    private let footprintMask = HexMaterialMaskView()
     private let rim = CAGradientLayer()
     private let rimMask = CAShapeLayer()
     private let restingEffect = UIGlassEffect(style: .regular)
@@ -51,11 +51,11 @@ final class HexGlassKeyView: UIView {
         local.apply(CGAffineTransform(translationX: -footprint.minX, y: -footprint.minY))
         glass.frame = bounds
         label.frame = glass.bounds
-        maskView.frame = glass.bounds
-        maskView.shape.path = local.cgPath
-        maskView.shape.lineWidth = width
+        footprintMask.frame = glass.bounds
+        footprintMask.shape.path = local.cgPath
+        footprintMask.shape.lineWidth = width
         // UIVisualEffectView copies its mask; reassign after every geometry change.
-        glass.mask = maskView
+        glass.mask = footprintMask
         rim.frame = bounds
         rimMask.frame = bounds
         rimMask.path = local.cgPath
