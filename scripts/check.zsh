@@ -9,3 +9,5 @@ for script in scripts/*.zsh; do
 done
 python3 scripts/check-config.py
 python3 -m unittest discover -s tests -v
+python3 scripts/gen-geometry-fixture.py --check
+python3 scripts/check-spec-parity.py

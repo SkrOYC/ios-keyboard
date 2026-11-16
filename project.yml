@@ -48,6 +48,7 @@ targets:
     scheme:
       testTargets:
         - KeyboardSmokeTests
+        - KeyboardLogicTests
 
   Keyboard:
     type: app-extension
@@ -75,3 +76,14 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_ID).SmokeTests
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: KeyboardHost
+
+  KeyboardLogicTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Keyboard/Core
+      - path: KeyboardLogicTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_ID).LogicTests
+        GENERATE_INFOPLIST_FILE: YES

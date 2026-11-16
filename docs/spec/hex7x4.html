@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Hex 7×4 Keyboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Manrope:wght@400;600;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+/* Plan: a dark device tray sits in a cool paper page. Page neutrals lean blue-grey, the one accent is vermilion,
+   used only for touch feedback (trail, pressed ring, toasts). Layout: device on the left, instruments on the right. */
+:root{
+  --paper:#e8ecf0; --panel:#f7f9fb; --ink:#15202a; --muted:#566471; --line:#cdd5dc;
+  --accent:#e5482d; --on-accent:#ffffff;
+  --tray:#0a0e12; --key:#2b3947; --key-util:#42566a; --key-down:#4d647b; --key-num:#3a4d60; --key-ink:#f2f5f8;
+  --pop:#eef2f5; --pop-ink:#15202a;
+  --good:#17805a; --bad:#b4411f;
+  --font-display:'Syne','Trebuchet MS','Segoe UI',sans-serif;
+  --font-body:'Manrope','Segoe UI',system-ui,-apple-system,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --paper:#0d1217; --panel:#151c23; --ink:#e6ebf0; --muted:#90a0ae; --line:#25303a;
+    --accent:#ff6b4d; --on-accent:#1a0a06; --good:#4cc79a; --bad:#ff9a7a;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#0d1217; --panel:#151c23; --ink:#e6ebf0; --muted:#90a0ae; --line:#25303a;
+  --accent:#ff6b4d; --on-accent:#1a0a06; --good:#4cc79a; --bad:#ff9a7a;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:16px/1.5 var(--font-body);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 56px}
+header{display:grid;gap:8px;margin-bottom:24px}
+h1{margin:0;font:800 clamp(34px,6vw,56px)/1 var(--font-display);letter-spacing:-.025em}
+.lede{margin:0;max-width:62ch;color:var(--muted);font-size:17px;text-wrap:pretty}
+h2{margin:0 0 12px;font:800 15px/1.2 var(--font-body);letter-spacing:.01em}
+.stage{display:grid;gap:24px;grid-template-columns:minmax(0,1fr);align-items:start}
+@media (min-width:920px){.stage{grid-template-columns:minmax(0,600px) minmax(0,1fr)}}
+
+/* device */
+.device{background:var(--tray);border-radius:26px;padding:10px;box-shadow:0 18px 40px -22px rgba(10,20,30,.6)}
+.screen{background:var(--panel);border-radius:18px 18px 8px 8px;padding:16px 18px 10px;margin-bottom:8px}
+.out{min-height:132px;max-height:220px;overflow:auto;font:500 22px/1.4 var(--font-body);white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere}
+.out .ph{color:var(--muted);font-weight:400;font-size:18px}
+.caret{display:inline-block;width:2px;height:1.1em;margin-left:1px;vertical-align:-.18em;background:var(--accent);animation:blink 1.05s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.screen-bar{display:flex;justify-content:space-between;align-items:center;margin-top:8px;color:var(--muted);font:400 12.5px var(--font-mono)}
+button{font:600 13px var(--font-body);color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.kbwrap{position:relative}
+#kb{display:block;width:100%;height:auto;touch-action:none;-webkit-user-select:none;user-select:none;border-radius:8px 8px 18px 18px}
+.tray{fill:var(--tray)}
+.k{fill:var(--key);stroke:var(--key);stroke-width:12;stroke-linejoin:round;cursor:pointer;transition:fill .08s,stroke .08s}
+.k.u{fill:var(--key-util);stroke:var(--key-util)}
+.k.n{fill:var(--key-num);stroke:var(--key-num)}
+.k.down{fill:var(--key-down);stroke:var(--accent)}
+.lbl{fill:var(--key-ink);text-anchor:middle;font:600 58px var(--font-body);pointer-events:none}
+.lbl.u{font-size:44px;font-weight:600}
+.lbl.n{font-size:64px;font-weight:700}
+.pk{fill:var(--pop);stroke:var(--pop);stroke-width:12;stroke-linejoin:round}
+.pk.hv{fill:var(--accent);stroke:var(--accent)}
+.pl{fill:var(--pop-ink);text-anchor:middle;font:700 54px var(--font-body);pointer-events:none}
+.pl.hv{fill:var(--on-accent)}
+#trail{fill:none;stroke:var(--accent);stroke-width:10;stroke-linecap:round;stroke-linejoin:round;opacity:.9;pointer-events:none}
+#trail.fade{opacity:0;transition:opacity .35s}
+.toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:var(--accent);color:var(--on-accent);font:600 13px var(--font-mono);padding:4px 12px;border-radius:99px;opacity:0;transition:opacity .15s;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:1}
+
+/* instruments */
+.side{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:1100px){.side{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.side .wide{grid-column:1/-1}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+.gest{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin:0;padding:0;list-style:none}
+.gest li{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:14px}
+.gest b{font:600 20px/1 var(--font-mono);color:var(--accent);min-width:2.4em;text-align:center}
+.gest small{display:block;color:var(--muted);font-size:12px;line-height:1.3}
+.row{display:grid;gap:6px;margin-bottom:14px}
+.row label{display:flex;justify-content:space-between;font-size:14px;font-weight:600}
+.row output{font:400 13px var(--font-mono);color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+select,input[type=text]{width:100%;font:500 14px var(--font-mono);color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+.err{min-height:1.2em;margin:0;font-size:12.5px;color:var(--bad)}
+.hint{margin:0;font-size:13px;color:var(--muted)}
+.two{display:grid;gap:16px 24px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.two p{margin:0;font-size:14px;color:var(--muted)}
+.two strong{display:block;color:var(--ink);font-size:14px;margin-bottom:2px}
+.bar-r{display:flex;gap:8px}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:7px 6px;border-top:1px solid var(--line)}
+th{font-weight:600;color:var(--muted);font-size:12.5px;border-top:0}
+td.n,th.n{text-align:right}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font:600 12.5px var(--font-mono);background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
+.pill.neg{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.cmp{display:block;width:100%;max-width:440px;height:auto;margin:0 0 10px}
+.cmp text{fill:var(--muted);font:400 13px var(--font-mono);text-anchor:middle}
+.log{margin:0;padding:0;list-style:none;font:400 12.5px/1.7 var(--font-mono);min-height:9.5em}
+.log li{display:flex;gap:10px;border-top:1px solid var(--line);padding:2px 0}
+.log li:first-child{border-top:0;color:var(--ink)}
+.log li{color:var(--muted)}
+.log time{opacity:.7}
+footer{margin-top:28px;color:var(--muted);font-size:13px;max-width:80ch}
+@media (prefers-reduced-motion:reduce){.caret{animation:none}.k,.toast,#trail.fade{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Hex 7×4</h1>
+    <p class="lede">A flat-top honeycomb with 26 letters, a symbols key and a period key. Delete, space, shift and return are swipes, so every key can stay large.</p>
+  </header>
+
+  <main class="stage">
+    <section class="device" aria-label="Keyboard prototype">
+      <div class="screen">
+        <div id="out" class="out" role="textbox" aria-readonly="true" aria-live="polite" aria-label="Typed text"></div>
+        <div class="screen-bar"><span id="count">0 characters</span><span class="bar-r"><button id="layer" type="button">Show numbers</button><button id="clear" type="button">Clear</button></span></div>
+      </div>
+      <div class="kbwrap">
+        <svg id="kb" viewBox="0 0 1320 883" role="application" aria-label="Hexagonal keyboard, 7 columns by 4 rows">
+          <rect class="tray" x="0" y="0" width="1320" height="883"/>
+          <g id="keys"></g>
+          <g id="pop"></g>
+          <path id="trail" d=""/>
+        </svg>
+        <div id="toast" class="toast" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="card wide">
+        <h2>Gestures</h2>
+        <ul class="gest">
+          <li><b>←</b><span>Delete<small>keep dragging to repeat</small></span></li>
+          <li><b>→</b><span>Space</span></li>
+          <li><b>↑</b><span>Shift<small>swipe up on a letter</small></span></li>
+          <li><b>↓</b><span>Return</span></li>
+          <li><b>.</b><span>Hold<small>, ? ! ' then release</small></span></li>
+          <li><b>123</b><span>Symbols<small>numbers and punctuation</small></span></li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Tuning</h2>
+        <div class="row"><label for="thr">Swipe distance <output id="thrv"></output></label><input id="thr" type="range" min="30" max="140" step="2"></div>
+        <div class="row"><label for="hold">Hold delay <output id="holdv"></output></label><input id="hold" type="range" min="250" max="800" step="10"></div>
+        <div class="row"><label for="preset">Letter order</label>
+          <select id="preset"><option value="tw">Typewise-fit</option><option value="split">Thumb-split</option><option value="keepea">Keep e·a</option><option value="custom">Custom</option></select>
+          <input id="custom" type="text" maxlength="40" spellcheck="false" autocomplete="off" aria-label="Custom letter order, 26 letters" hidden>
+          <p id="err" class="err" role="status"></p>
+          <p class="hint">Typewise-fit keeps each letter near its place on the Typewise keyboard. Thumb-split moves 6 letters, so every vowel sits on the right and the common consonants on the left. Keep e·a leaves e and a where Typewise has them and puts every vowel in the second and third columns from the left, which moves 14 letters. Any 26-letter order works.</p>
+        </div>
+        <button id="reset" type="button">Reset tuning</button>
+      </section>
+
+      <section class="card">
+        <h2>Event log</h2>
+        <ul id="log" class="log" aria-live="off"></ul>
+      </section>
+
+      <section class="card wide">
+        <h2>How the layers were laid out</h2>
+        <div class="two">
+          <p><strong>Letters</strong>Each letter takes the 7×4 slot nearest its place on the Typewise keyboard, matched one to one. Rows drop from five to four and the two space keys are gone, so letters moved 0.5 key widths on average, and 25 of 26 moved less than 0.75. Finger travel across common letter pairs stays level with the original: 2.61 key widths against 2.62 (rough figure from the 42 most common English pairs). Thumb-split and Keep e·a come from a model of two-thumb typing run on published English letter-pair counts, where the model scores them about 19% and 23% faster than the Typewise-fit order. The Thumb-split order also scores 17% to 23% faster in Spanish, French, German, Italian, Portuguese and Dutch; Keep e·a was only checked on English. The model's constants are assumed and no one has tested these orders yet, so treat them as candidates to try.</p>
+          <p><strong>Numbers</strong>The three middle columns follow the phone keypad: 1 2 3 on top, * 0 # on the bottom. Symbols sit at the sides: quotes and brackets on the left, price and math signs on the right, with the hyphen and apostrophe beside the digits. The period key stays put, and holding it still gives , ? ! '.</p>
+        </div>
+      </section>
+
+      <section class="card wide">
+        <h2>Key size against QWERTY</h2>
+        <svg id="cmp" class="cmp" viewBox="0 0 440 224" role="img" aria-label="A hex key and a QWERTY key drawn to the same scale"></svg>
+        <table>
+          <thead><tr><th></th><th class="n">Hex 7×4</th><th class="n">QWERTY</th><th class="n">Change</th></tr></thead>
+          <tbody>
+            <tr><td>Keys</td><td class="n">28</td><td class="n">33</td><td class="n"></td></tr>
+            <tr><td>Letter tap diameter</td><td class="n">184 px</td><td class="n">124 px</td><td class="n"><span class="pill">+48%</span></td></tr>
+            <tr><td>Letter key area</td><td class="n">31.1k px²</td><td class="n">20.5k px²</td><td class="n"><span class="pill">+52%</span></td></tr>
+            <tr><td>Footprint</td><td class="n">1289 × 855</td><td class="n">1312 × 705</td><td class="n"><span class="pill neg">+21% tall</span></td></tr>
+            <tr><td>Keys covering footprint</td><td class="n">79%</td><td class="n">87%</td><td class="n"><span class="pill neg">−8 pts</span></td></tr>
+          </tbody>
+        </table>
+        <p class="hint" style="margin-top:10px">Measured in a 1320 px wide design space. Tap diameter is the largest circle that fits inside a visible key.</p>
+      </section>
+
+    </aside>
+  </main>
+
+  <footer>Layout prototype. The letter order reuses Typewise's arrangement, which the design patent leaves unclaimed. Typewise has also filed utility applications, and none of this has been reviewed by a patent attorney.</footer>
+</div>
+
+<script>
+(() => {
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const VBW = 1320, S = 6, C30 = Math.cos(Math.PI / 6);
+
+  /* ---- geometry: 7 columns x 4 rows, flat-top, stretched to fill the width at an 855 px footprint ---- */
+  const G = (() => {
+    const g = 8, cols = 7, rows = 4, Hfp = 855, Wfp = 1292;
+    const a = (Hfp - 3.5 * g) / 9, d = 2 * a + g, cp0 = 0.8660254 * d;
+    const sx = Wfp / ((cols - 1) * cp0 + 2 * a / C30);
+    const R = a / C30 * sx;
+    const x0 = (VBW - ((cols - 1) * cp0 * sx + 2 * R)) / 2 + R, y0 = 14 + a;
+    return { g, cols, rows, a, d, cp0, sx, R, x0, y0, VBH: Hfp + 28 };
+  })();
+  const VBH = G.VBH;
+
+  const hexD = (cx, cy, aa) => {
+    const RR = aa / C30 * G.sx;
+    const p = [[RR, 0], [RR / 2, aa], [-RR / 2, aa], [-RR, 0], [-RR / 2, -aa], [RR / 2, -aa]];
+    return 'M' + p.map(q => (cx + q[0]).toFixed(1) + ',' + (cy + q[1]).toFixed(1)).join('L') + 'Z';
+  };
+
+  /* ---- state ---- */
+  const PRESETS = { tw: 'wqzeasxtrdcgfnvyuhmiljbopk', split: 'wqztnsxlrdcgfmvyuhaiejbopk', keepea: 'wqzeacxyiougfjvhtsmrndbplk' };
+  /* slot order is column by column, top to bottom. Middle columns hold the phone keypad (1 2 3 / 4 5 6 / 7 8 9 / * 0 #). */
+  const SYMS = '()"\'-:;147*2580369#$%+=@&/';
+  const POP = [',', '?', '!', "'"];
+  const DEFAULTS = { thr: 70, hold: 420 };
+  const state = { v: 2, buf: '', layer: 'abc', preset: 'tw', order: PRESETS.tw, thr: DEFAULTS.thr, hold: DEFAULTS.hold };
+
+  /* ---- build keys ---- */
+  const $ = id => document.getElementById(id);
+  const svg = $('kb'), keysG = $('keys'), popG = $('pop'), trail = $('trail');
+  const K = [], pathEls = [], textEls = [];
+  let li = 0;
+  for (let c = 0; c < G.cols; c++) for (let r = 0; r < G.rows; r++) {
+    const cx = G.x0 + c * G.cp0 * G.sx, cy = G.y0 + r * G.d + (c % 2 ? G.d / 2 : 0);
+    const util = c === 0 && r === 3 ? '123' : c === 6 && r === 3 ? '.' : null;
+    K.push({ c, r, cx, cy, util, li: util ? -1 : li++ });
+  }
+  K.forEach((k, i) => {
+    const p = document.createElementNS(SVGNS, 'path');
+    p.setAttribute('d', hexD(k.cx, k.cy, G.a - S));
+    p.setAttribute('class', 'k' + (k.util ? ' u' : ''));
+    p.dataset.k = i;
+    const t = document.createElementNS(SVGNS, 'text');
+    t.setAttribute('x', k.cx.toFixed(1)); t.setAttribute('y', k.cy.toFixed(1)); t.setAttribute('dy', '.35em');
+    t.setAttribute('class', 'lbl' + (k.util ? ' u' : ''));
+    keysG.append(p, t); pathEls.push(p); textEls.push(t);
+  });
+
+  const labelOf = k => k.util === '123' ? (state.layer === 'abc' ? '123' : 'abc')
+    : k.util === '.' ? '.'
+    : (state.layer === 'abc' ? state.order[k.li] : SYMS[k.li]);
+  const relabel = () => K.forEach((k, i) => {
+    const t = labelOf(k); textEls[i].textContent = t;
+    const num = state.layer === 'sym' && k.li >= 0 && /[0-9*#]/.test(t);
+    pathEls[i].classList.toggle('n', num); textEls[i].classList.toggle('n', num);
+  });
+  const setLayer = l => { state.layer = l; relabel(); $('layer').textContent = l === 'abc' ? 'Show numbers' : 'Show letters'; };
+
+  /* ---- output ---- */
+  const out = $('out'), count = $('count'), caret = document.createElement('span');
+  caret.className = 'caret'; caret.setAttribute('aria-hidden', 'true');
+  const render = () => {
+    out.textContent = '';
+    if (!state.buf) { const ph = document.createElement('span'); ph.className = 'ph'; ph.textContent = 'Tap a key, or drag across the keyboard'; out.append(ph); }
+    else out.append(document.createTextNode(state.buf));
+    out.append(caret);
+    out.scrollTop = out.scrollHeight;
+    count.textContent = [...state.buf].length + ' characters';
+  };
+  const type = s => { state.buf += s; render(); };
+  const del = () => { const a = [...state.buf]; a.pop(); state.buf = a.join(''); render(); };
+
+  /* ---- log + toast ---- */
+  const logEl = $('log'), toastEl = $('toast'); let toastT = 0; const t0 = Date.now(); const LOG = [];
+  const logEv = s => {
+    const sec = ((Date.now() - t0) / 1000).toFixed(1).padStart(5, ' ');
+    LOG.unshift([sec, s]); LOG.length = Math.min(LOG.length, 8);
+    logEl.replaceChildren(...LOG.map(([tm, tx]) => { const li = document.createElement('li'); const a = document.createElement('time'); a.textContent = tm + 's'; const b = document.createElement('span'); b.textContent = tx; li.append(a, b); return li; }));
+  };
+  const toast = s => { toastEl.textContent = s; toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 650); };
+
+  /* ---- gestures ---- */
+  let P = null, popC = [], popEls = [];
+  const toSvg = e => { const r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) * VBW / r.width, y: (e.clientY - r.top) * VBH / r.height }; };
+  const press = (k, on) => { const i = K.indexOf(k); if (i >= 0) pathEls[i].classList.toggle('down', on); };
+  const flash = k => { press(k, true); setTimeout(() => press(k, false), 110); };
+  const drawTrail = () => { trail.setAttribute('d', 'M' + P.pts.slice(-60).map(q => q[0].toFixed(0) + ',' + q[1].toFixed(0)).join('L')); };
+  const fadeTrail = () => { trail.classList.add('fade'); setTimeout(() => { trail.classList.remove('fade'); trail.setAttribute('d', ''); }, 380); };
+
+  const tap = k => {
+    flash(k);
+    if (k.util === '123') { setLayer(state.layer === 'abc' ? 'sym' : 'abc'); logEv('tap ' + (state.layer === 'sym' ? '123 → numbers' : 'abc → letters')); }
+    else { const ch = labelOf(k); type(ch); logEv('tap ' + ch); }
+  };
+
+  const fire = (dir, k) => {
+    const from = k ? ' from ' + (labelOf(k) || '·') : ' from gap';
+    if (dir === 'left') { del(); toast('← delete'); logEv('swipe ← delete' + from); }
+    else if (dir === 'right') { type(' '); toast('→ space'); logEv('swipe → space' + from); }
+    else if (dir === 'down') { type('\n'); toast('↓ return'); logEv('swipe ↓ return' + from); }
+    else if (dir === 'up') {
+      if (k && k.li >= 0 && state.layer === 'abc') { const ch = labelOf(k).toUpperCase(); type(ch); toast('↑ shift'); logEv('swipe ↑ ' + ch); }
+      else logEv('swipe ↑ ignored' + from);
+    }
+  };
+
+  const openPopup = k => {
+    if (!P || P.mode) return;
+    P.mode = 'popup'; P.hover = -1; popC = []; popEls = [];
+    const ap = G.a * 0.62, step = 2 * (ap / C30 * G.sx) + 14;
+    POP.forEach((ch, j) => {
+      const cx = k.cx - j * step, cy = k.cy - G.d * 1.2;
+      const p = document.createElementNS(SVGNS, 'path'); p.setAttribute('d', hexD(cx, cy, ap - S)); p.setAttribute('class', 'pk');
+      const t = document.createElementNS(SVGNS, 'text'); t.setAttribute('x', cx.toFixed(1)); t.setAttribute('y', cy.toFixed(1)); t.setAttribute('dy', '.35em'); t.setAttribute('class', 'pl'); t.textContent = ch;
+      popG.append(p, t); popC.push({ x: cx, y: cy, ap }); popEls.push([p, t]);
+    });
+    toast('hold: slide to choose');
+  };
+  const hoverPopup = p => {
+    let best = -1, bd = 1e9;
+    popC.forEach((c, j) => { const dd = Math.hypot((p.x - c.x) / G.sx, p.y - c.y); if (dd < c.ap * 1.1 && dd < bd) { bd = dd; best = j; } });
+    P.hover = best;
+    popEls.forEach(([p2, t], j) => { p2.classList.toggle('hv', j === best); t.classList.toggle('hv', j === best); });
+  };
+  const closePopup = () => { popG.replaceChildren(); popC = []; popEls = []; };
+
+  svg.addEventListener('pointerdown', e => {
+    if (P) return;
+    e.preventDefault();
+    trail.classList.remove('fade'); trail.setAttribute('d', '');
+    const p = toSvg(e), el = e.target.closest && e.target.closest('[data-k]'), k = el ? K[+el.dataset.k] : null;
+    P = { id: e.pointerId, x0: p.x, y0: p.y, k, mode: null, dir: null, pts: [[p.x, p.y]], nextAt: 0, hover: -1, timer: 0 };
+    try { svg.setPointerCapture(e.pointerId); } catch (_) {}
+    if (k) press(k, true);
+    if (k && k.util === '.') P.timer = setTimeout(() => openPopup(k), state.hold);
+  });
+
+  svg.addEventListener('pointermove', e => {
+    if (!P || e.pointerId !== P.id) return;
+    const p = toSvg(e); P.pts.push([p.x, p.y]); drawTrail();
+    const dx = p.x - P.x0, dy = p.y - P.y0;
+    if (P.mode === 'popup') { hoverPopup(p); return; }
+    if (!P.mode) {
+      if (Math.hypot(dx, dy) < state.thr) return;
+      clearTimeout(P.timer); if (P.k) press(P.k, false);
+      P.mode = 'swipe';
+      P.dir = Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+      P.nextAt = dx; fire(P.dir, P.k);
+    } else if (P.dir === 'left') {
+      const step = Math.max(40, state.thr * 0.9);
+      while (dx <= P.nextAt - step) { P.nextAt -= step; del(); toast('← delete'); }
+    }
+  });
+
+  const end = e => {
+    if (!P || e.pointerId !== P.id) return;
+    clearTimeout(P.timer);
+    const was = P; if (was.k) press(was.k, false);
+    if (was.mode === 'popup') {
+      if (was.hover >= 0) { type(POP[was.hover]); logEv('hold . → ' + POP[was.hover]); } else logEv('hold . → cancelled');
+      closePopup();
+    } else if (!was.mode && e.type === 'pointerup' && was.k) tap(was.k);
+    else if (!was.mode && e.type === 'pointerup') logEv('tap in gap');
+    fadeTrail(); P = null;
+  };
+  svg.addEventListener('pointerup', end);
+  svg.addEventListener('pointercancel', end);
+  svg.addEventListener('contextmenu', e => e.preventDefault());
+
+  /* ---- physical keyboard, for desktop testing ---- */
+  document.addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'BUTTON') return;
+    if (e.key === 'Backspace') { e.preventDefault(); fire('left', null); }
+    else if (e.key === ' ') { e.preventDefault(); fire('right', null); }
+    else if (e.key === 'Enter') { e.preventDefault(); fire('down', null); }
+    else if (e.key.length === 1) {
+      const want = state.layer === 'abc' ? e.key.toLowerCase() : e.key;
+      const i = K.findIndex(k => k.li >= 0 && labelOf(k) === want);
+      if (i >= 0) { flash(K[i]); const ch = state.layer === 'abc' && e.shiftKey ? want.toUpperCase() : want; type(ch); logEv('key ' + ch); }
+    }
+  });
+
+  /* ---- controls ---- */
+  const thr = $('thr'), hold = $('hold'), preset = $('preset'), custom = $('custom'), err = $('err');
+  const syncControls = () => {
+    thr.value = state.thr; hold.value = state.hold;
+    $('thrv').textContent = state.thr + ' units'; $('holdv').textContent = state.hold + ' ms';
+    preset.value = state.preset; custom.hidden = state.preset !== 'custom';
+    if (state.preset === 'custom') custom.value = state.order;
+  };
+  thr.addEventListener('input', () => { state.thr = +thr.value; $('thrv').textContent = state.thr + ' units'; });
+  hold.addEventListener('input', () => { state.hold = +hold.value; $('holdv').textContent = state.hold + ' ms'; });
+  preset.addEventListener('change', () => {
+    state.preset = preset.value; err.textContent = '';
+    if (state.preset !== 'custom') { state.order = PRESETS[state.preset]; relabel(); }
+    custom.hidden = state.preset !== 'custom'; if (state.preset === 'custom') { custom.value = state.order; custom.focus(); }
+  });
+  custom.addEventListener('input', () => {
+    const v = custom.value.toLowerCase().replace(/[^a-z]/g, '');
+    if (v.length === 26 && new Set(v).size === 26) { state.order = v; err.textContent = ''; relabel(); }
+    else err.textContent = 'Needs 26 different letters (' + new Set(v).size + ' different so far).';
+  });
+  $('reset').addEventListener('click', () => { state.thr = DEFAULTS.thr; state.hold = DEFAULTS.hold; syncControls(); });
+  $('clear').addEventListener('click', () => { state.buf = ''; render(); });
+  $('layer').addEventListener('click', () => setLayer(state.layer === 'abc' ? 'sym' : 'abc'));
+
+  /* ---- key size comparison drawn to one scale ---- */
+  (() => {
+    const c = $('cmp'), W = 2 * G.a / C30 * G.sx, Hh = 2 * G.a;
+    const hx = 128, hy = 100, qx = 338, qy = 100, qw = 124, qh = 165;
+    const ring = (x, y, r) => `<circle cx="${x}" cy="${y}" r="${r.toFixed(1)}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-dasharray="6 5"/>`;
+    c.innerHTML =
+      `<path d="${hexD(hx, hy, G.a)}" fill="var(--key)"/>` + ring(hx, hy, G.a) +
+      `<rect x="${qx - qw / 2}" y="${qy - qh / 2}" width="${qw}" height="${qh}" rx="16" fill="var(--key)"/>` + ring(qx, qy, qw / 2) +
+      `<text x="${hx}" y="214">Hex Ø ${Math.round(2 * G.a)}</text><text x="${qx}" y="214">QWERTY Ø ${qw}</text>`;
+  })();
+
+  /* ---- boot, keeping state across republishes ---- */
+  const boot = data => {
+    const d = Object.assign({}, data || {});
+    if (d.v !== 2) { delete d.preset; delete d.order; d.v = 2; }
+    Object.assign(state, d);
+    if (!/^[a-z]{26}$/.test(state.order) || new Set(state.order).size !== 26) { state.order = PRESETS.tw; state.preset = 'tw'; }
+    if (state.preset !== 'custom' && !PRESETS[state.preset]) { const hit = Object.keys(PRESETS).find(k => PRESETS[k] === state.order); state.preset = hit || 'custom'; }
+    setLayer(state.layer); render(); syncControls(); logEv('ready');
+  };
+  const hot = window.claude && window.claude.hot;
+  if (hot && hot.ready) hot.ready(boot); else boot((hot && hot.data) || {});
+  if (hot && hot.snapshot) hot.snapshot(() => ({ ...state }));
+})();
+</script>
+</body>
+</html>
