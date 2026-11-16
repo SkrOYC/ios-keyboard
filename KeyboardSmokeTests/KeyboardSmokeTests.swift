@@ -19,7 +19,10 @@ final class KeyboardSmokeTests: XCTestCase {
         general.tap()
         settings.cells.containing(.staticText, identifier: "Keyboard").firstMatch.tap()
         settings.cells.containing(.staticText, identifier: "Keyboards").firstMatch.tap()
-        settings.cells.containing(.staticText, identifier: "Add New Keyboard…").firstMatch.tap()
+        let addKeyboard = settings.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "Add New Keyboard")).firstMatch
+        XCTAssertTrue(addKeyboard.waitForExistence(timeout: 10), settings.debugDescription)
+        addKeyboard.tap()
         let keyboard = settings.cells.containing(.staticText, identifier: "Keyboard").firstMatch
         XCTAssertTrue(keyboard.waitForExistence(timeout: 10), settings.debugDescription)
         keyboard.tap()
