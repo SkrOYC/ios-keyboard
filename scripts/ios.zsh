@@ -52,16 +52,22 @@ case "${1:-}" in
     print 'Unsigned device IPA: build/KeyboardHost.ipa'
     ;;
   test)
-    # Select an available iPhone on the required iOS major, regardless of model.
-    simulator=$(/usr/bin/xcrun simctl list devices available --json | python3 -c '
+    # The runner has several iOS releases. A runtime newer than this Xcode
+    # can boot through simctl but is not an eligible xcodebuild destination.
+    simulator_sdk=$(/usr/bin/xcrun --sdk iphonesimulator --show-sdk-version)
+    /usr/bin/xcrun simctl list devices available --json > build/simulators.json
+    simulator=$(python3 -c '
 import json, sys
 devices = json.load(sys.stdin)["devices"]
+prefix = ".iOS-" + sys.argv[1].replace(".", "-")
 phones = [d["udid"] for runtime, entries in devices.items()
-          if ".iOS-26-" in runtime for d in entries if d["name"].startswith("iPhone")]
+          if runtime.endswith(prefix) or prefix + "-" in runtime
+          for d in entries if d["name"].startswith("iPhone")]
 if not phones:
-    sys.exit("No available iOS 26 iPhone simulator")
+    sys.exit("No available iPhone simulator matching SDK " + sys.argv[1])
 print(phones[0])
-')
+' "$simulator_sdk" < build/simulators.json)
+    print "Simulator: $simulator; SDK: $simulator_sdk"
     /usr/bin/xcrun simctl boot "$simulator" || true
     /usr/bin/xcrun simctl bootstatus "$simulator" -b
     # Ensure the software keyboard appears even when a runner has a hardware keyboard.
@@ -72,6 +78,7 @@ print(phones[0])
       -scheme KeyboardHost \
       -configuration Debug \
       -destination "platform=iOS Simulator,id=$simulator" \
+      -destination-timeout 30 \
       -parallel-testing-enabled NO \
       -resultBundlePath "$PWD/build/SmokeTests.xcresult" \
       CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
