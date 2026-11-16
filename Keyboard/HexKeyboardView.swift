@@ -40,6 +40,7 @@ final class HexKeyboardView: UIView {
             addSubview(label)
             labels.append(label)
             let element = KeyAccessibilityElement(accessibilityContainer: self)
+            element.isAccessibilityElement = true
             element.accessibilityTraits = .keyboardKey
             element.activate = { [weak self] in self?.activate(key) }
             keyElements.append(element)
