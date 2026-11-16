@@ -1,6 +1,6 @@
 # Hex keyboard implementation report
 
-The QWERTY interface is replaced by the hex keyboard. Milestones 0 through 5 have green CI evidence. Milestone 6 is implemented and passes the phone probe and 23 unit tests, but final validation is blocked. Two consecutive independent infrastructure failures triggered the required stop. The source declares version 0.3.0, build 3; that version has no verified device IPA.
+The QWERTY interface is replaced by the hex keyboard. Milestones 0 through 5 have green CI evidence. Milestone 6 is implemented and passes the phone probe and 23 unit tests, but final validation is blocked. Work stopped after the final failures were initially classified as two infrastructure failures. A follow-up investigation found invalid frame offsets in the second failure; it is not a confirmed decoder outage. The source declares version 0.3.0, build 3; that version has no verified device IPA.
 
 ## Milestone evidence
 
@@ -18,7 +18,7 @@ The following table separates completed checks from the remaining gates.
 
 ## Blocking failures and resolved findings
 
-The final run first lost all concrete Xcode simulator destinations before tablet Release compilation. Its retry passed the phone tests, then AVFoundation rejected the simulator recording. The retry log also reports a paravirtual scaler-driver lookup failure. No further implementation or CI retries were started after that second infrastructure failure.
+The final run first lost all concrete Xcode simulator destinations before tablet Release compilation. Its retry passed the phone tests, then frame export failed after writing three PNGs. The next requested offset was 455.280 seconds in a 433.550-second movie. Although the log also contains a paravirtual scaler warning, that warning does not establish a decoder outage. No CI retry has been launched for the follow-up investigation. [CI recovery investigation](CI_RECOVERY.md) records the evidence, local remediation, and bounded recovery plan.
 
 Earlier resolved failures are preserved in the evidence:
 
@@ -27,7 +27,7 @@ Earlier resolved failures are preserved in the evidence:
 - [Initial punctuation probe](https://github.com/SkrOYC/ios-keyboard/actions/runs/43850022243): the immediate comma assertion failed. Fixed screen coordinates and exact-value polling passed the following run. All 19 unit tests passed in the failed attempt.
 - [Preset attempt 1](https://github.com/SkrOYC/ios-keyboard/actions/runs/43857290266/attempts/1): Xcode lost its simulator destination after compilation. The unchanged retry passed.
 
-On-demand popup captures were late despite correct functional results. Video export avoids capturing during a synthetic hold, but its first clock anchor used process launch time. The actual recording creation time can be later. A version-zero movie-header clock correction passed isolated Python checks and matched the downloaded recording header. It remains outside the candidate after the stop; the local patch is preserved under `build/movie-clock-correction.patch`.
+On-demand popup captures were late despite correct functional results. Video export avoids capturing during a synthetic hold, but its first clock anchor used process launch time. The actual recording creation time can be later. A local version-zero movie-header correction aligns requests to each recording's creation clock and validates its duration. It passes regression tests and puts all requests within both cached recordings. The Swift exporter also has a local duration guard, and the Xcode stages have a local simulator readiness refresh. These recovery changes are pending macOS CI validation. The native evidence tool is compiled before UI probes, and its failure does not suppress result-bundle attachment export. The original saved patch remains under `build/movie-clock-correction.patch`.
 
 ## Inspected visual evidence
 
@@ -55,7 +55,7 @@ The following behavior remains untested on a physical device:
 - VoiceOver interaction, conditional globe handoff, and accessibility sizing preferences.
 - Signing, provisioning, installation, and operation of the unsigned package on a device.
 
-Open validation work is to restore stable simulator destinations and media decoding, verify tablet Release/dark behavior, anchor frame requests to recording creation time, inspect portrait popup and compact picker images, and complete the 0.3.0/build 3 archive and IPA checks. Ergonomic tuning and comparative preset performance require real typing evidence.
+Open validation work is to verify the simulator readiness mitigation and corrected frame export, verify tablet Release/dark behavior, inspect portrait popup and compact picker images, and complete the 0.3.0/build 3 archive and IPA checks. Ergonomic tuning and comparative preset performance require real typing evidence.
 
 ## Decision register
 
@@ -110,4 +110,17 @@ The complete register is also maintained in [Decisions](DECISIONS.md).
 - D47: Cache simulator evidence under ignored build/simulator-cache because inspection files must remain available without entering Git.
 - D48: Preserve the prototype script and remove personal attribution from its prose because spec parity and anonymous public text are both required.
 - D49: Use neutral commit metadata because the change history must not publish personal identifiers.
-- D50: Defer the movie-clock correction after the infrastructure stop because it needs remote frame verification before entering the candidate.
+- D50: Defer publishing the movie-clock correction because its locally tested timing still needs macOS frame verification.
+
+## Recovery decisions prepared locally
+
+The recovery patch adds the following decisions without changing keyboard behavior:
+
+- D51: Refresh CoreSimulator at each Xcode boundary because an earlier successful boot does not prove later destination discovery is ready.
+- D52: Anchor frame requests to the movie creation clock because recorder startup can lag behind process launch.
+- D53: Reject invalid frame offsets before decoding because clamping can produce unrelated visual evidence.
+- D54: Treat a driver warning as diagnostic context because successful earlier decodes contradict a confirmed decoder outage.
+- D55: Preserve strict test and visual gates because recovery must not turn missing evidence into a successful check.
+
+- D56: Compile the evidence exporter before UI probes because Swift or SDK errors should fail before simulator interaction.
+- D57: Export test attachments before propagating evidence failures because successful test results must remain inspectable.

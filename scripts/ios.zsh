@@ -27,6 +27,7 @@ generate_project() {
   /usr/bin/xcrun --sdk iphoneos --show-sdk-version
   xcodegen --version
   xcodegen generate
+  /usr/bin/xcrun --sdk macosx swiftc -swift-version 5 scripts/export-simulator-frames.swift -o build/export-simulator-frames
 }
 
 prepare_simulator() {
@@ -56,10 +57,24 @@ print(phones[0])
   /usr/bin/xcrun simctl ui "$simulator" appearance "$probe_appearance"
 }
 
+ensure_simulator_ready() {
+  # Refresh the daemon connection at each Xcode boundary, not only during boot.
+  /usr/bin/xcrun simctl bootstatus "$simulator" -b
+  /usr/bin/xcrun simctl list devices available --json > build/simulator-readiness.json
+  python3 -c '
+import json, sys
+devices = [device for entries in json.load(sys.stdin)["devices"].values() for device in entries]
+selected = next((device for device in devices if device["udid"] == sys.argv[1]), None)
+if selected is None or selected.get("state") != "Booted":
+    sys.exit("The selected simulator is not available and booted")
+' "$simulator" < build/simulator-readiness.json
+}
+
 compile_tests() {
   local probe_configuration=${1:-Debug}
   local compile_log="build/compile-${probe_configuration}.log"
   simulator=$(cat build/simulator-id.txt)
+  ensure_simulator_ready
   if ! /usr/bin/xcodebuild build-for-testing \
     -project KeyboardHost.xcodeproj -scheme KeyboardHost -configuration "$probe_configuration" \
     -destination "platform=iOS Simulator,id=$simulator" -destination-timeout 30 \
@@ -79,6 +94,7 @@ run_tests() {
   local probe_result="build/${probe_name}.xcresult"
   local probe_screenshots="build/screenshots/${probe_name}"
   simulator=$(cat build/simulator-id.txt)
+  ensure_simulator_ready
   rm -rf "$probe_result"
   local popup_capture_pid
   local capture_done="build/${probe_name}-capture-done.txt"
@@ -100,11 +116,13 @@ run_tests() {
     return 1
   fi
   print -r -- success > "$capture_done"
-  wait "$popup_capture_pid"
+  local capture_result=0
+  wait "$popup_capture_pid" || capture_result=$?
   /usr/bin/xcrun xcresulttool export attachments --help > build/xcresult-export-help.txt
   /usr/bin/xcrun xcresulttool export attachments --path "$probe_result" --output-path "$probe_screenshots"
   /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/${probe_name}.png"
   tail -n 25 "$probe_log"
+  return "$capture_result"
 }
 
 archive_app() {

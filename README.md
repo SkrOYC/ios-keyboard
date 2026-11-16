@@ -2,7 +2,7 @@
 
 A SwiftUI host app and a UIKit keyboard extension for iOS and iPadOS 26. The extension replaces QWERTY with a flat-top honeycomb containing 26 letters, a symbols key, and a period key. It requests no Full Access and uses no network or App Group.
 
-The source declares version 0.3.0, build 3. Final tablet Release and device-package validation is blocked by CI infrastructure. See the [Implementation report](docs/IMPLEMENTATION_REPORT.md) for green milestone links, inspected images, and remaining gates.
+The source declares version 0.3.0, build 3. Final tablet Release and device-package validation is blocked by simulator discovery and evidence-export failures. See the [Implementation report](docs/IMPLEMENTATION_REPORT.md) for green milestone links, inspected images, and remaining gates.
 
 ## Type with gestures
 
@@ -22,7 +22,7 @@ Each key has an accessibility element and custom editing actions. The period key
 
 The authoritative prototype is [Hex 7×4](docs/spec/hex7x4.html). `Keyboard/Core` contains Foundation-only, Double-based geometry, labels, gesture state, popup choices, layout policy, and preference storage. `HexKeyboardView` draws shape layers and labels and forwards independent touches. `KeyboardViewController` applies actions through the text document proxy.
 
-Portrait keys use a 1320×883 design space, producing a key area about 261 points tall at 390 points wide. A separate debug strip shows action names and memory use. Compact layouts use a 180-point key area; tablet width is capped at 700 points and centred. Read the [Decision register](docs/DECISIONS.md) for the reasons behind geometry, interaction, accessibility, and verification choices.
+Portrait keys use a 1320×883 design space, producing a key area about 261 points tall at 390 points wide. A separate debug strip shows action names and memory use. Compact layouts use a 180-point key area; tablet width is capped at 700 points and centred. Read the [Decision register](docs/DECISIONS.md) for the reasons behind geometry, interaction, accessibility, and verification choices. The keycaps use custom solid or translucent fills over the system keyboard backdrop; they do not apply `UIGlassEffect` themselves. Native glass effects and accessibility material preferences need a separate visual review.
 
 ## Development environment
 

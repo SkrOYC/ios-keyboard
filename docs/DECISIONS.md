@@ -51,4 +51,17 @@ These decisions define the implementation and its verification. Final tablet and
 - D47: Cache simulator evidence under ignored build/simulator-cache because inspection files must remain available without entering Git.
 - D48: Preserve the prototype script and remove personal attribution from its prose because spec parity and anonymous public text are both required.
 - D49: Use neutral commit metadata because the change history must not publish personal identifiers.
-- D50: Defer the movie-clock correction after the infrastructure stop because it needs remote frame verification before entering the candidate.
+- D50: Defer publishing the movie-clock correction because its locally tested timing still needs macOS frame verification.
+
+## Recovery decisions prepared locally
+
+The [recovery investigation](CI_RECOVERY.md) distinguishes local preparation from macOS validation.
+
+- D51: Refresh CoreSimulator at each Xcode boundary because an earlier successful boot does not prove later destination discovery is ready.
+- D52: Anchor frame requests to the movie creation clock because recorder startup can lag behind process launch.
+- D53: Reject invalid frame offsets before decoding because clamping can produce unrelated visual evidence.
+- D54: Treat a driver warning as diagnostic context because successful earlier decodes contradict a confirmed decoder outage.
+- D55: Preserve strict test and visual gates because recovery must not turn missing evidence into a successful check.
+
+- D56: Compile the evidence exporter before UI probes because Swift or SDK errors should fail before simulator interaction.
+- D57: Export test attachments before propagating evidence failures because successful test results must remain inspectable.
