@@ -1,6 +1,6 @@
 # Hex keyboard decisions
 
-These decisions define the implementation and its verification. Final tablet and transient-image validation remains blocked; see [Implementation report](IMPLEMENTATION_REPORT.md).
+These decisions define the implementation and its verification. All milestones have green CI evidence; see [Implementation report](IMPLEMENTATION_REPORT.md) for run links and device validation boundaries.
 
 - D01: Use filled hexagons and their round strokes for hit-testing because visible gaps must insert nothing.
 - D02: Track every touch independently because two thumbs need separate gesture state, popup state, and hold timers.
@@ -48,20 +48,21 @@ These decisions define the implementation and its verification. Final tablet and
 - D44: Use Xcode AVFoundation APIs for frame export because they require no extra package or lock change.
 - D45: Probe phone Debug in light appearance and tablet Release in dark appearance because both configurations and Glass fill variants need evidence.
 - D46: Remove detailed touch traces because the shipped keyboard needs only bounded action and memory diagnostics.
-- D47: Cache simulator evidence under ignored build/simulator-cache because inspection files must remain available without entering Git.
+- D47: Cache original evidence and named review copies under ignored build/simulator-cache because screenshots must remain easy to inspect without entering Git.
 - D48: Preserve the prototype script and remove personal attribution from its prose because spec parity and anonymous public text are both required.
 - D49: Use the host-wide Git identity because the content PII rule does not change author configuration.
-- D50: Defer publishing the movie-clock correction because its locally tested timing still needs macOS frame verification.
-
-## Recovery decisions prepared locally
-
-The [recovery investigation](CI_RECOVERY.md) distinguishes local preparation from macOS validation.
-
+- D50: Require native decoding and visual review for clock changes because valid offset arithmetic alone cannot prove popup content.
 - D51: Refresh CoreSimulator at each Xcode boundary because an earlier successful boot does not prove later destination discovery is ready.
 - D52: Anchor frame requests to the movie creation clock because recorder startup can lag behind process launch.
 - D53: Reject invalid frame offsets before decoding because clamping can produce unrelated visual evidence.
 - D54: Treat a driver warning as diagnostic context because successful earlier decodes contradict a confirmed decoder outage.
 - D55: Preserve strict test and visual gates because recovery must not turn missing evidence into a successful check.
-
 - D56: Compile the evidence exporter before UI probes because Swift or SDK errors should fail before simulator interaction.
 - D57: Export test attachments before propagating evidence failures because successful test results must remain inspectable.
+- D58: Isolate phone and tablet in required matrix jobs because each probe needs its own simulator and 45-minute budget.
+- D59: Cycle the system globe with fixed coordinates because native iPad accessibility hit points can be invalid.
+- D60: Collect extension launch logs and crash reports on UI failure because a native keyboard preview cannot identify the cause.
+- D61: Check Done in the landscape picker because dismissing preferences must preserve text and letter order.
+- D62: Back popup hexes with an opaque adaptive color because underlying letters showed through the dark translucent fills.
+- D63: Treat reverse-engineering notes as background because the bundled HTML defines this keyboard's geometry and gestures.
+- D64: Give each probe a distinct evidence artifact because parallel uploads require unique artifact names.

@@ -2,7 +2,7 @@
 
 A SwiftUI host app and a UIKit keyboard extension for iOS and iPadOS 26. The extension replaces QWERTY with a flat-top honeycomb containing 26 letters, a symbols key, and a period key. It requests no Full Access and uses no network or App Group.
 
-The source declares version 0.3.0, build 3. Final tablet Release and device-package validation is blocked by simulator discovery and evidence-export failures. See the [Implementation report](docs/IMPLEMENTATION_REPORT.md) for green milestone links, inspected images, and remaining gates.
+Version 0.3.0, build 3 passes the phone Debug and tablet Release probes, screenshot export, device archive, and unsigned IPA validation. See the [green verification run](https://github.com/SkrOYC/ios-keyboard/actions/runs/43966486861) and [implementation report](docs/IMPLEMENTATION_REPORT.md) for milestone evidence and device validation boundaries.
 
 ## Type with gestures
 
@@ -20,9 +20,11 @@ Each key has an accessibility element and custom editing actions. The period key
 
 ## Layout and logic
 
-The authoritative prototype is [Hex 7×4](docs/spec/hex7x4.html). `Keyboard/Core` contains Foundation-only, Double-based geometry, labels, gesture state, popup choices, layout policy, and preference storage. `HexKeyboardView` draws shape layers and labels and forwards independent touches. `KeyboardViewController` applies actions through the text document proxy.
+The authoritative prototype is [Hex 7×4](docs/spec/hex7x4.html). The Familiar letter arrangement draws inspiration from the legacy Typewise (WRIO) layout; the prototype defines this extension's geometry and gestures. `Keyboard/Core` contains Foundation-only, Double-based geometry, labels, gesture state, popup choices, layout policy, and preference storage. `HexKeyboardView` draws shape layers and labels and forwards independent touches. `KeyboardViewController` applies actions through the text document proxy.
 
-Portrait keys use a 1320×883 design space, producing a key area about 261 points tall at 390 points wide. A separate debug strip shows action names and memory use. Compact layouts use a 180-point key area; tablet width is capped at 700 points and centred. Read the [Decision register](docs/DECISIONS.md) for the reasons behind geometry, interaction, accessibility, and verification choices. The keycaps use custom solid or translucent fills over the system keyboard backdrop; they do not apply `UIGlassEffect` themselves. Native glass effects and accessibility material preferences need a separate visual review.
+Portrait keys use a 1320×883 design space, producing a key area about 261 points tall at 390 points wide. A separate debug strip shows action names and memory use. Compact layouts use a 180-point key area; tablet width is capped at 700 points and centred. Read the [decision register](docs/DECISIONS.md) for the geometry, interaction, accessibility, and verification choices.
+
+The keyboard preserves clear backgrounds and the original adaptive Glass key fills over the system backdrop. Individual hexes and picker buttons use custom fills rather than `UIGlassEffect`. Popup hexes add an opaque adaptive backing so underlying letters cannot compete with punctuation. Light phone and dark tablet layouts, both orientations, popups, and pickers have been visually inspected. Reduce Transparency, Increase Contrast, and Reduce Motion still need device review.
 
 ## Development environment
 
@@ -39,25 +41,26 @@ direnv exec . check
 
 ## Build and verify
 
-The [GitHub workflow](.github/workflows/build.yml) uses `macos-26` with a 45-minute timeout. Its stages generate the project, boot an SDK-matching simulator, compile, enable the extension through Settings, run tests, archive the device app, and verify the unsigned IPA.
+The [GitHub workflow](.github/workflows/build.yml) runs separate phone and tablet jobs on `macos-26`, each with a 45-minute timeout. Both generate the project, boot an SDK-matching simulator, compile, enable the extension through Settings, and run tests. The phone job also archives the device app and verifies the unsigned IPA. Both jobs are required for a green run.
 
-The phone probe uses Debug and light appearance. The tablet stage rebuilds and tests Release in dark appearance. `KeyboardLogicTests` compiles Core directly; `KeyboardViewTests` checks accessible keys and actions. The UI probe uses coordinate taps and drags and requires the exact `Hi \n` sequence before further layer, preset, gap, and repeat checks.
+The phone probe uses Debug and light appearance. The tablet probe builds Release in dark appearance. Each passes 21 Core tests, 2 UIKit accessibility tests, and the complete UI probe. The UI probe uses coordinate taps and drags and requires the exact `Hi \n` sequence before layer, popup, preset, picker cancellation, gap, rotation, and repeat checks.
 
 On macOS with the declared Xcode installation, run the stages with these commands:
 
 ```sh
 direnv exec . ios-test
+direnv exec . ios-project
 direnv exec . ios-ipad-test
 direnv exec . ios-build
 ```
 
-The tablet command follows `ios-test` because it reuses the generated project and test products directory. `ios-build` archives and packages the device app. Validate a downloaded package with this command:
+`ios-ipad-test` requires `ios-project` and can run independently of the phone probe. `ios-build` archives and packages the device app. Validate a downloaded package with this command:
 
 ```sh
 direnv exec . ipa-check build/KeyboardHost.ipa
 ```
 
-The `KeyboardHost-ipa` artifact contains the verified package and checksum. `lifecycle-evidence` contains logs, result bundles, screenshots, simulator recordings, and exported frames. Artifacts expire after seven days. Inspected copies are cached locally under the ignored `build/simulator-cache` directory.
+The `KeyboardHost-ipa` artifact contains the verified package and checksum. `lifecycle-evidence` and `lifecycle-evidence-tablet` contain each probe's logs, result bundles, full-screen screenshots, simulator recordings, and popup frames. Artifacts expire after seven days. Download both evidence artifacts with `direnv exec . gh run download <run-id> --name <artifact-name> --dir build/simulator-cache/<cache-name>`. Keep inspection copies in that ignored cache directory. The [CI recovery notes](docs/CI_RECOVERY.md) explain frame timing and failure diagnostics.
 
 ## Enable the extension
 

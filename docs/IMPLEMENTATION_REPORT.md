@@ -1,61 +1,58 @@
 # Hex keyboard implementation report
 
-The QWERTY interface is replaced by the hex keyboard. Milestones 0 through 5 have green CI evidence. Milestone 6 is implemented and passes the phone probe and 23 unit tests, but final validation is blocked. Work stopped after the final failures were initially classified as two infrastructure failures. A follow-up investigation found invalid frame offsets in the second failure; it is not a confirmed decoder outage. The source declares version 0.3.0, build 3; that version has no verified device IPA.
+All milestones are implemented and have green CI evidence. The QWERTY interface is replaced by the specified 7×4 hex keyboard, including the preset picker stretch goal. Version 0.3.0, build 3 passes phone Debug/light and tablet Release/dark tests, screenshot export, device archive, and unsigned IPA validation. The [final implementation run](https://github.com/SkrOYC/ios-keyboard/actions/runs/43966486861) covers the current application code. No CI blocker remains.
 
 ## Milestone evidence
 
-The following table separates completed checks from the remaining gates.
+| Milestone | Delivered scope | Verification and CI evidence |
+| --- | --- | --- |
+| 0 | Untouched branch baseline | [Green baseline](https://github.com/SkrOYC/ios-keyboard/actions/runs/43830067814); duration 15 minutes 55 seconds. Prior successful runs measured 11 to 14 minutes. |
+| 1 | Foundation-only geometry, letter orders, symbols, touch state machine, popup model, unit target, independent fixture, and spec parity check | [Green Core milestone](https://github.com/SkrOYC/ios-keyboard/actions/runs/43832299522); 14 logic tests, lifecycle probe, archive, and IPA verification. |
+| 2 | Shape-layer renderer, labels, letter taps, clear backgrounds, and working debug strip | [Green renderer milestone](https://github.com/SkrOYC/ios-keyboard/actions/runs/43839204507); portrait reviewed. Complete portrait and landscape evidence is also covered by the final run. |
+| 3 | Independent touches, uppercase swipe, space, newline, deletion, repeat travel, and release-position handling | [Green gesture milestone](https://github.com/SkrOYC/ios-keyboard/actions/runs/43846152514); the required coordinate sequence produced exactly `Hi \n`, both orientations were reviewed, and IPA verification passed. |
+| 4 | Symbol layer, period popup, conditional globe, and key accessibility actions | [Green layer milestone](https://github.com/SkrOYC/ios-keyboard/actions/runs/43853915882); comma selection and cancellation, 17 Core tests, and 2 UIKit tests. Final popup frames were reviewed in both orientations and appearances. |
+| 5 | Familiar, Thumb-split, Keep e·a, extension-owned defaults, invalid-value fallback, and in-keyboard picker | [Green preset milestone](https://github.com/SkrOYC/ios-keyboard/actions/runs/43857290266/attempts/2); all preset selections, 20 unit tests, lifecycle probe, archive, and IPA verification. Both picker orientations were reviewed in final evidence. |
+| 6 | Safe-area sizing, centred tablet width cap, landscape glyph sizing, host gesture legend, gap/repeat checks, compact picker cancellation, dark popup contrast, documentation, and 0.3.0/build 3 | [Green final implementation](https://github.com/SkrOYC/ios-keyboard/actions/runs/43966486861); both simulator jobs, all 23 unit tests per configuration, complete UI probes, native frame export, archive, and IPA verification. |
 
-| Milestone | Implemented scope | Verification | CI evidence |
-| --- | --- | --- | --- |
-| 0 | Untouched branch baseline | Green; duration 15 minutes 55 seconds. Prior successful runs measured 11 to 14 minutes. | [Baseline run](https://github.com/SkrOYC/ios-keyboard/actions/runs/43830067814) |
-| 1 | Foundation geometry, orders, symbols, gesture state, popup model, unit target, independent fixture, and parity check | Green; 14 logic tests, lifecycle probe, archive, and IPA validation. | [Core run](https://github.com/SkrOYC/ios-keyboard/actions/runs/43832299522) |
-| 2 | Shape-layer hex renderer, key labels, letter taps, clear backgrounds, and debug strip | Green; portrait inspected. Complete landscape capture was verified in milestone 3. | [Renderer run](https://github.com/SkrOYC/ios-keyboard/actions/runs/43839204507) |
-| 3 | Independent touches, uppercase swipe, space, return, deletion, repeats, and final-position handling | Green; exact coordinate sequence produced `Hi \n`, 15 logic tests passed, both orientation images inspected, and IPA validated. | [Gesture run](https://github.com/SkrOYC/ios-keyboard/actions/runs/43846152514) |
-| 4 | Symbols, period hold, conditional globe, and accessibility actions | Green; symbols, comma selection, cancellation, 17 Core tests, and 2 UIKit tests. Landscape popup inspected. Portrait popup image remains unverified. | [Layer and accessibility run](https://github.com/SkrOYC/ios-keyboard/actions/runs/43853915882) |
-| 5 | Three presets, extension defaults, invalid-value fallback, and in-keyboard picker | Green; all preset selections, 20 unit tests, lifecycle probe, archive, and IPA validation. Portrait picker inspected; compact picker image remains unverified. | [Preset run, attempt 2](https://github.com/SkrOYC/ios-keyboard/actions/runs/43857290266/attempts/2) |
-| 6 | Safe-area layout policy, tablet cap, landscape glyph sizing, host legend, gap/repeat probes, stronger guards, Release tablet stage, video frames, and 0.3.0/build 3 | Partial: phone probe and 23 unit tests passed in both attempts. Tablet Release, dark appearance, final archive/IPA, and complete transient-image review remain blocked. | [Final run, attempt 1](https://github.com/SkrOYC/ios-keyboard/actions/runs/43863882102/attempts/1), [attempt 2](https://github.com/SkrOYC/ios-keyboard/actions/runs/43863882102/attempts/2) |
+## Validation
 
-## Blocking failures and resolved findings
+Each simulator passed 21 Foundation Core tests, 2 UIKit accessibility tests, and the full Settings-to-typing UI probe. The probe requires swipe up on h, tap i, swipe right, tap q, swipe left, and swipe down to produce exactly `Hi \n`. It then verifies a dead-gap tap, symbol digits, punctuation selection and cancellation, all presets, portrait and landscape input, picker dismissal without text or order changes, and repeated deletion. Unit tests cover overlapping contacts, a popup alongside another contact, all popup choices, conditional globe actions, hold cancellation, defaults persistence, and responsive layout.
 
-The final run first lost all concrete Xcode simulator destinations before tablet Release compilation. Its retry passed the phone tests, then frame export failed after writing three PNGs. The next requested offset was 455.280 seconds in a 433.550-second movie. Although the log also contains a paravirtual scaler warning, that warning does not establish a decoder outage. No CI retry has been launched for the follow-up investigation. [CI recovery investigation](CI_RECOVERY.md) records the evidence, local remediation, and bounded recovery plan.
+The independent geometry fixture compares every key centre and polygon against Core. Its generator checks canvas bounds, equal apothems, mirror symmetry, and neighbour distances before horizontal stretching. The Linux check also compares Swift presets, symbols, popup characters, swipe distance, hold delay, and repeat distance with the prototype. All nine Python tests, workflow checks, shell checks, configuration checks, and fixture checks pass.
 
-Earlier resolved failures are preserved in the evidence:
+The unsigned IPA passes arm64, host/extension structure, matching version, iOS minimum, signing-state, extension-safety, and prohibited-content checks. The downloaded 0.3.0/build 3 package also passes `ipa-check`; its checksum matches the artifact checksum. Existing configuration and IPA assertions remain intact and have been extended. `devenv.lock` is unchanged. No tag or release was created.
 
-- [Initial renderer probe](https://github.com/SkrOYC/ios-keyboard/actions/runs/43835319624): a system keyboard introduction covered input-mode switching. The probe dismisses its Continue overlay. Custom key elements also explicitly enable accessibility.
-- [Initial coordinate probe](https://github.com/SkrOYC/ios-keyboard/actions/runs/43842910308): the field remained empty. Readiness checks, intermediate captures, and diagnostics were added; the following run proved normal begin, move, and end delivery. The initial cause was not conclusively isolated.
-- [Initial punctuation probe](https://github.com/SkrOYC/ios-keyboard/actions/runs/43850022243): the immediate comma assertion failed. Fixed screen coordinates and exact-value polling passed the following run. All 19 unit tests passed in the failed attempt.
-- [Preset attempt 1](https://github.com/SkrOYC/ios-keyboard/actions/runs/43857290266/attempts/1): Xcode lost its simulator destination after compilation. The unchanged retry passed.
+## Inspected screenshots and Liquid Glass
 
-On-demand popup captures were late despite correct functional results. Video export avoids capturing during a synthetic hold, but its first clock anchor used process launch time. The actual recording creation time can be later. A local version-zero movie-header correction aligns requests to each recording's creation clock and validates its duration. It passes regression tests and puts all requests within both cached recordings. The Swift exporter also has a local duration guard, and the Xcode stages have a local simulator readiness refresh. These recovery changes are pending macOS CI validation. The native evidence tool is compiled before UI probes, and its failure does not suppress result-bundle attachment export. The original saved patch remains under `build/movie-clock-correction.patch`.
+The final implementation evidence contains full-screen phone portrait and landscape screenshots, symbols, both picker orientations, and active punctuation popups. The tablet probe provides the same states in dark appearance, including the fifth globe entry. Both orientations of the corrected dark popup were inspected: the opaque adaptive backing prevents underlying letters from showing through its labels. The phone popup remains visually consistent in light appearance.
 
-## Inspected visual evidence
+Original CI artifacts are cached under ignored `build/simulator-cache/popup-contrast`. Named review copies are kept under `build/simulator-cache/review`; earlier evidence remains available for comparison. All saved keyboard images come from CI simulators. Video-derived landscape frames retain the recording's orientation; full-screen XCTest attachments provide upright landscape views. No external reference screenshots or generated replacement images are included.
 
-Downloaded CI evidence is cached under the ignored `build/simulator-cache` directory. Images are copied from CI artifacts; no generated replacement images are used.
+Clear view backgrounds and the original adaptive Glass key fills preserve the system keyboard backdrop. Individual hexes and preset buttons draw custom fills. Native `UIGlassEffect` refraction and interaction are not implemented on those controls.
 
-The inspected evidence includes complete phone portrait and landscape grids, the symbol layer, the portrait preset picker, the landscape punctuation popup, and the host gesture guide. The landscape app-only capture was cropped; full-screen captures corrected that issue. The debug strip shows action names after its label tracking was changed to weakly cover controller instances.
+## Resolved failures
 
-Portrait popup frames selected with the launch-time clock missed the active hold. Tablet/dark images and the compact picker have not been inspected. Those views must not be treated as visually verified.
+The [recovery notes](CI_RECOVERY.md) retain the recording measurements and recovery details. The missing simulator destination was consistent with a CoreSimulator readiness race; its internal cause was not proven. Readiness refreshes and separate simulator jobs passed the final runs.
 
-## Validation boundaries
+The first video clock used recorder launch time, which can precede the movie's creation clock. One failed request was 455.280 seconds into a 433.550-second movie. The corrected parser uses the movie header and validates every offset; the native exporter independently validates asset duration. Both orientations now decode to visibly active popups. A driver warning in the earlier failure is not treated as proof of a decoder outage.
 
-The Linux `check` command passes configuration, workflow, shell, verifier, fixture, and spec-parity checks. Existing configuration and IPA assertions remain intact. Added guards enforce Foundation-only Core imports, extension-safe APIs, release metadata, runner settings, and excluded network, haptic, and correction APIs. The IPA verifier additionally rejects test tooling, malformed versions, and network exceptions. `devenv.lock` is unchanged.
+The [first recovery run](https://github.com/SkrOYC/ios-keyboard/actions/runs/43950697188) passed the phone probe and tablet Release compilation, then failed to discover the tablet's hex keys. The [menu-selection probe](https://github.com/SkrOYC/ios-keyboard/actions/runs/43959142526) also failed before key discovery while both unit suites passed. Fixed-coordinate globe cycling passed the [complete recovery run](https://github.com/SkrOYC/ios-keyboard/actions/runs/43962591187). A native preview alone did not establish an extension crash. Failure-only launch-log and crash-report collection is available; the final successful runs did not exercise that failure path.
 
-The final phone probe passed the required uppercase/tap/space/tap/delete/return sequence, symbol input, popup selection and cancellation, all presets, rotation, a dead-gap tap, and repeated deletion. Its 23 unit tests comprise 21 Core tests and 2 UIKit accessibility tests. The final archive and device IPA stages were skipped after the infrastructure failures. The last fully verified IPA belongs to the preset milestone, before the version bump.
+Earlier resolved issues included the system keyboard introduction covering switching, accessibility elements missing their explicit enabled flag, premature text assertions across processes, cropped app-only landscape screenshots, and stale debug-label instances. Strict text, image, archive, and IPA gates remain enabled.
 
-The geometry fixture checks every centre and six-vertex polygon, canvas bounds, equal apothems, centre mirror symmetry, and neighbour distances. Distance and apothem invariants remove the intentional horizontal stretch before measurement.
+## Device checks and open questions
 
-## Real-device gaps and open questions
+No physical-device typing or installation is verified. The remaining checks are:
 
-The following behavior remains untested on a physical device:
+- Swipe thresholds and the 420-millisecond hold under natural typing speed.
+- Two-thumb overlap, palm contact, and simultaneous UIKit touch delivery; the independent state machine is unit tested.
+- Landscape reach, flattened key shape, popup target size, and the 700-point tablet width cap.
+- VoiceOver navigation and custom-action usability, including keyboard handoff through the globe.
+- Preset persistence across extension termination on a device.
+- Reduce Transparency, Increase Contrast, Reduce Motion, and larger accessibility text settings.
+- Signing, provisioning, and installation of the unsigned package.
 
-- Swipe distance, 420-millisecond hold delay, and 10-unit movement allowance during natural thumb motion.
-- Overlapping two-thumb contacts, cancellation timing, and repeated deletion under real input sampling.
-- Landscape comfort, tablet reach, floating or split-window layouts, and preset preference after extension termination.
-- VoiceOver interaction, conditional globe handoff, and accessibility sizing preferences.
-- Signing, provisioning, installation, and operation of the unsigned package on a device.
-
-Open validation work is to verify the simulator readiness mitigation and corrected frame export, verify tablet Release/dark behavior, inspect portrait popup and compact picker images, and complete the 0.3.0/build 3 archive and IPA checks. Ergonomic tuning and comparative preset performance require real typing evidence.
+There are no remaining implementation blockers. These checks concern device behavior and accessibility preferences beyond the simulator evidence. Dedicated shift, space, return, and delete keys, correction, prediction, emoji input, and haptics remain outside scope.
 
 ## Decision register
 
@@ -107,20 +104,21 @@ The complete register is also maintained in [Decisions](DECISIONS.md).
 - D44: Use Xcode AVFoundation APIs for frame export because they require no extra package or lock change.
 - D45: Probe phone Debug in light appearance and tablet Release in dark appearance because both configurations and Glass fill variants need evidence.
 - D46: Remove detailed touch traces because the shipped keyboard needs only bounded action and memory diagnostics.
-- D47: Cache simulator evidence under ignored build/simulator-cache because inspection files must remain available without entering Git.
+- D47: Cache original evidence and named review copies under ignored build/simulator-cache because screenshots must remain easy to inspect without entering Git.
 - D48: Preserve the prototype script and remove personal attribution from its prose because spec parity and anonymous public text are both required.
 - D49: Use the host-wide Git identity because the content PII rule does not change author configuration.
-- D50: Defer publishing the movie-clock correction because its locally tested timing still needs macOS frame verification.
-
-## Recovery decisions prepared locally
-
-The recovery patch adds the following decisions without changing keyboard behavior:
-
+- D50: Require native decoding and visual review for clock changes because valid offset arithmetic alone cannot prove popup content.
 - D51: Refresh CoreSimulator at each Xcode boundary because an earlier successful boot does not prove later destination discovery is ready.
 - D52: Anchor frame requests to the movie creation clock because recorder startup can lag behind process launch.
 - D53: Reject invalid frame offsets before decoding because clamping can produce unrelated visual evidence.
 - D54: Treat a driver warning as diagnostic context because successful earlier decodes contradict a confirmed decoder outage.
 - D55: Preserve strict test and visual gates because recovery must not turn missing evidence into a successful check.
-
 - D56: Compile the evidence exporter before UI probes because Swift or SDK errors should fail before simulator interaction.
 - D57: Export test attachments before propagating evidence failures because successful test results must remain inspectable.
+- D58: Isolate phone and tablet in required matrix jobs because each probe needs its own simulator and 45-minute budget.
+- D59: Cycle the system globe with fixed coordinates because native iPad accessibility hit points can be invalid.
+- D60: Collect extension launch logs and crash reports on UI failure because a native keyboard preview cannot identify the cause.
+- D61: Check Done in the landscape picker because dismissing preferences must preserve text and letter order.
+- D62: Back popup hexes with an opaque adaptive color because underlying letters showed through the dark translucent fills.
+- D63: Treat reverse-engineering notes as background because the bundled HTML defines this keyboard's geometry and gestures.
+- D64: Give each probe a distinct evidence artifact because parallel uploads require unique artifact names.
