@@ -85,7 +85,7 @@ Enter the real signing Apple ID and its two-factor authentication code in iloade
 After installation:
 
 1. Open **Keyboard Host**.
-2. Go to **Settings > General > Keyboard > Keyboards > Add New Keyboard** and add **Keyboard**.
+2. Go to **Settings > General > Keyboard > Keyboards > Add New Keyboard** and add **Keyboard Host**.
 3. Return to the host app, tap **Type here**, and switch to the keyboard with the globe key.
 4. Try typing, shift, space, held delete, return, and rotation. Reinstall a subsequent build and confirm that the keyboard remains usable.
 

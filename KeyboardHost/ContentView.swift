@@ -8,8 +8,8 @@ struct ContentView: View {
 
     private let steps = [
         "Open Settings › General › Keyboard › Keyboards.",
-        "Tap “Add New Keyboard…”.",
-        "Under “Third-Party Keyboards”, pick “Keyboard”.",
+        "Tap “Add New Keyboard”.",
+        "Under “Third-Party Keyboards”, pick “Keyboard Host”.",
         "Come back here, tap the field below and long-press 🌐 to switch to it."
     ]
 
