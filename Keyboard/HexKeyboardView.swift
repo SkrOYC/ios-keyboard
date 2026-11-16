@@ -21,6 +21,18 @@ final class HexKeyboardView: UIView {
     private var keyElements: [KeyAccessibilityElement] = []
     private var touchIDs: [ObjectIdentifier: Int] = [:]
     private var nextID = 0
+    private var holdTimers: [Int: Timer] = [:]
+    private var popupShapes: [Int: [CAShapeLayer]] = [:]
+    private var popupLabels: [Int: [UILabel]] = [:]
+
+    var needsGlobe: Bool {
+        get { machine.needsGlobe }
+        set {
+            guard newValue != machine.needsGlobe else { return }
+            machine.needsGlobe = newValue
+            cancelTouches()
+        }
+    }
 
     init() {
         super.init(frame: .zero)
@@ -104,7 +116,10 @@ final class HexKeyboardView: UIView {
             let element = keyElements[key.slot]
             element.accessibilityIdentifier = key.isLayer ? "key-123" : key.isPeriod ? "key-period" : "key-\(title)"
             element.accessibilityLabel = key.isLayer ? (machine.layer == .letters ? "Symbols" : "Letters") : key.isPeriod ? "Period" : title
+            element.accessibilityHint = key.isPeriod ? (machine.needsGlobe ? "Hold for punctuation and the next keyboard" : "Hold for punctuation") : "Swipe left to delete, right for space, down for return, or up on a letter to capitalize"
+            element.accessibilityCustomActions = customActions(for: key)
         }
+        refreshPopups()
         CATransaction.commit()
     }
 
@@ -126,6 +141,7 @@ final class HexKeyboardView: UIView {
             let location = point(touch)
             onTouchTrace?("begin \(nextID) at \(Int(location.x)), \(Int(location.y)); contacts \(machine.contacts.count)")
             machine.begin(nextID, at: location, time: touch.timestamp)
+            scheduleHold(nextID)
         }
         refresh()
     }
@@ -136,6 +152,7 @@ final class HexKeyboardView: UIView {
             let actions = machine.move(id, to: point(touch))
             if !actions.isEmpty { onTouchTrace?("move \(id); actions \(actions.count)") }
             send(actions)
+            if machine.contacts[id]?.holdAllowed == false { holdTimers.removeValue(forKey: id)?.invalidate() }
         }
         refresh()
     }
@@ -147,6 +164,7 @@ final class HexKeyboardView: UIView {
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
             guard let id = touchIDs.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
+            holdTimers.removeValue(forKey: id)?.invalidate()
             let actions = machine.end(id, at: point(touch), time: touch.timestamp)
             onTouchTrace?("end \(id); actions \(actions.count)")
             send(actions)
@@ -156,16 +174,106 @@ final class HexKeyboardView: UIView {
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
-            if let id = touchIDs.removeValue(forKey: ObjectIdentifier(touch)) { machine.cancel(id) }
+            if let id = touchIDs.removeValue(forKey: ObjectIdentifier(touch)) {
+                holdTimers.removeValue(forKey: id)?.invalidate()
+                machine.cancel(id)
+            }
         }
         refresh()
     }
 
     func cancelTouches() {
+        for timer in holdTimers.values { timer.invalidate() }
+        holdTimers.removeAll()
         if !machine.contacts.isEmpty { onTouchTrace?("cancel all; contacts \(machine.contacts.count)") }
         machine.cancelAll()
         touchIDs.removeAll()
         refresh()
+    }
+
+    private func scheduleHold(_ id: Int) {
+        guard machine.contacts[id]?.startKey?.isPeriod == true else { return }
+        let timer = Timer(timeInterval: TouchMachine.holdMilliseconds / 1000, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.holdTimers.removeValue(forKey: id)
+            self.send(self.machine.advance(id, time: ProcessInfo.processInfo.systemUptime))
+            self.refresh()
+        }
+        holdTimers[id] = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func refreshPopups() {
+        let active = Set(machine.contacts.compactMap { $0.value.popup == nil ? nil : $0.key })
+        for id in Array(popupShapes.keys) where !active.contains(id) {
+            popupShapes.removeValue(forKey: id)?.forEach { $0.removeFromSuperlayer() }
+            popupLabels.removeValue(forKey: id)?.forEach { $0.removeFromSuperview() }
+        }
+        for id in active.sorted() {
+            guard let contact = machine.contacts[id], let popup = contact.popup else { continue }
+            if popupShapes[id] == nil {
+                popupShapes[id] = popup.entries.map { _ in
+                    let shape = CAShapeLayer()
+                    shape.lineJoin = .round
+                    shape.shadowColor = UIColor.black.cgColor
+                    shape.shadowOpacity = 0.2
+                    shape.shadowRadius = 3
+                    shape.shadowOffset = CGSize(width: 0, height: 2)
+                    layer.addSublayer(shape)
+                    return shape
+                }
+                popupLabels[id] = popup.entries.map { _ in
+                    let label = UILabel()
+                    label.textAlignment = .center
+                    label.isUserInteractionEnabled = false
+                    label.isAccessibilityElement = false
+                    addSubview(label)
+                    return label
+                }
+            }
+            let selected = popup.selection(at: contact.location)
+            for (index, entry) in popup.entries.enumerated() {
+                let shape = popupShapes[id]![index], label = popupLabels[id]![index]
+                shape.path = path(machine.geometry.polygon(center: entry.center, apothem: popup.apothem - machine.geometry.stroke / 2)).cgPath
+                shape.lineWidth = CGFloat(machine.geometry.stroke)
+                let fill = entry.choice == selected ? Glass.keyPressedFill : Glass.keyFill
+                shape.fillColor = fill.resolvedColor(with: traitCollection).cgColor
+                shape.strokeColor = fill.resolvedColor(with: traitCollection).cgColor
+                label.text = entry.choice.label
+                label.textColor = .label
+                let a = CGFloat(popup.apothem)
+                let radius = a / CGFloat(HexGeometry.cosine30) * CGFloat(popup.horizontalScale)
+                label.font = .systemFont(ofSize: min(24, a * 1.05))
+                label.frame = CGRect(x: CGFloat(entry.center.x) - radius, y: CGFloat(entry.center.y) - a,
+                                     width: 2 * radius, height: 2 * a)
+            }
+        }
+    }
+
+    private func customActions(for key: HexKey) -> [UIAccessibilityCustomAction] {
+        var actions = [
+            accessibilityAction("Delete", action: .delete),
+            accessibilityAction("Space", action: .insert(" ")),
+            accessibilityAction("Return", action: .insert("\n"))
+        ]
+        if let index = key.letterIndex, machine.layer == .letters {
+            actions.append(accessibilityAction("Capitalize", action: .insert(machine.order.letter(at: index).uppercased())))
+        }
+        if key.isPeriod {
+            for (name, value) in [("Comma", ","), ("Question mark", "?"), ("Exclamation mark", "!"), ("Apostrophe", "'")] {
+                actions.append(accessibilityAction(name, action: .insert(value)))
+            }
+            if machine.needsGlobe { actions.append(accessibilityAction("Next keyboard", action: .nextKeyboard)) }
+        }
+        return actions
+    }
+
+    private func accessibilityAction(_ title: String, action: KeyboardAction) -> UIAccessibilityCustomAction {
+        UIAccessibilityCustomAction(name: title) { [weak self] _ in
+            guard let self else { return false }
+            self.onAction?(action)
+            return true
+        }
     }
 
     override func didMoveToWindow() {

@@ -12,7 +12,7 @@ import UIKit
 enum DebugLog {
     static let enabled = true
 
-    private static weak var label: UILabel?
+    private static let labels = NSHashTable<UILabel>.weakObjects()
     private static let maxLogBytes: UInt64 = 64 * 1024
 
     private static let logURL: URL? = FileManager.default
@@ -26,7 +26,7 @@ enum DebugLog {
         l.textColor = .secondaryLabel
         l.text = "debug"
         l.heightAnchor.constraint(equalToConstant: 14).isActive = true
-        label = l
+        labels.add(l)
         return l
     }
 
@@ -34,7 +34,7 @@ enum DebugLog {
         guard enabled else { return }
         let mem = memoryFootprintMB().map { String(format: "%.1f MB", $0) } ?? "? MB"
         let line = "\(mem) · \(message)"
-        label?.text = line
+        for label in labels.allObjects { label.text = line }
         append("\(Date()) \(line)\n")
     }
 

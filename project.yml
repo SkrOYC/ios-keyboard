@@ -49,6 +49,7 @@ targets:
       testTargets:
         - KeyboardSmokeTests
         - KeyboardLogicTests
+        - KeyboardViewTests
 
   Keyboard:
     type: app-extension
@@ -86,4 +87,16 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_ID).LogicTests
+        GENERATE_INFOPLIST_FILE: YES
+
+  KeyboardViewTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Keyboard/Core
+      - path: Keyboard/HexKeyboardView.swift
+      - path: KeyboardViewTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_ID).ViewTests
         GENERATE_INFOPLIST_FILE: YES

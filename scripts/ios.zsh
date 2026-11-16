@@ -75,6 +75,9 @@ collect_touch_diagnostics() {
 run_tests() {
   simulator=$(cat build/simulator-id.txt)
   rm -rf build/SmokeTests.xcresult
+  local popup_capture_pid
+  python3 scripts/capture-popup-evidence.py "$simulator" build/simulator.log build/SmokeTests &
+  popup_capture_pid=$!
   if ! /usr/bin/xcodebuild test-without-building \
     -project KeyboardHost.xcodeproj -scheme KeyboardHost -configuration Debug \
     -destination "platform=iOS Simulator,id=$simulator" -destination-timeout 30 \
@@ -82,12 +85,15 @@ run_tests() {
     -resultBundlePath "$PWD/build/SmokeTests.xcresult" \
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
     > build/simulator.log 2>&1; then
+    kill "$popup_capture_pid" 2>/dev/null || true
+    wait "$popup_capture_pid" 2>/dev/null || true
     /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/simulator-failure.png" || true
     /usr/bin/xcrun xcresulttool export attachments --path build/SmokeTests.xcresult --output-path build/screenshots || true
     collect_touch_diagnostics
     report_failure build/simulator.log
     return 1
   fi
+  wait "$popup_capture_pid"
   collect_touch_diagnostics
   /usr/bin/xcrun xcresulttool export attachments --help > build/xcresult-export-help.txt
   /usr/bin/xcrun xcresulttool export attachments --path build/SmokeTests.xcresult --output-path build/screenshots

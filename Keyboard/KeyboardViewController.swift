@@ -25,8 +25,15 @@ final class KeyboardViewController: UIInputViewController {
         DebugLog.log("ready · hex 7×4")
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        keyboard.needsGlobe = needsInputModeSwitchKey
+        view.setNeedsLayout()
+    }
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        keyboard.needsGlobe = needsInputModeSwitchKey
         let width = min(view.bounds.width, 700)
         guard width > 0 else { return }
         let landscape = traitCollection.verticalSizeClass == .compact
@@ -64,7 +71,10 @@ final class KeyboardViewController: UIInputViewController {
         case .delete:
             textDocumentProxy.deleteBackward()
             DebugLog.log("delete")
-        case .nextKeyboard: advanceToNextInputMode()
+        case .nextKeyboard:
+            DebugLog.log("next keyboard")
+            keyboard.cancelTouches()
+            advanceToNextInputMode()
         case .showPicker: break
         }
     }

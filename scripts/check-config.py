@@ -30,6 +30,12 @@ def main():
     assert logic["type"] == "bundle.unit-test"
     assert {source["path"] for source in logic["sources"]} == {"Keyboard/Core", "KeyboardLogicTests"}
     assert "KeyboardLogicTests" in spec["targets"]["KeyboardHost"]["scheme"]["testTargets"]
+    renderer = spec["targets"]["KeyboardViewTests"]
+    assert renderer["type"] == "bundle.unit-test"
+    assert {source["path"] for source in renderer["sources"]} == {
+        "Keyboard/Core", "Keyboard/HexKeyboardView.swift", "KeyboardViewTests"
+    }
+    assert "KeyboardViewTests" in spec["targets"]["KeyboardHost"]["scheme"]["testTargets"]
     for source in Path("Keyboard/Core").glob("*.swift"):
         assert "import UIKit" not in source.read_text(), "Core must remain independent of UIKit"
     assert "CODE_SIGN_ENTITLEMENTS" not in Path("project.yml").read_text()
