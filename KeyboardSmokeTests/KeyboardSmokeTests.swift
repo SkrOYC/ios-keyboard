@@ -13,20 +13,19 @@ final class KeyboardSmokeTests: XCTestCase {
         let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
         settings.launch()
         let general = settings.cells.containing(.staticText, identifier: "General").firstMatch
-        for _ in 0..<5 where !general.isHittable {
+        for _ in 0..<5 where !isOnScreen(general, in: settings) {
             settings.swipeUp()
         }
         XCTAssertTrue(general.waitForExistence(timeout: 10), settings.debugDescription)
-        general.tap()
-        settings.cells.containing(.staticText, identifier: "Keyboard").firstMatch.tap()
-        settings.cells.containing(.staticText, identifier: "Keyboards").firstMatch.tap()
-        let addKeyboard = settings.descendants(matching: .any)
-            .matching(NSPredicate(format: "label BEGINSWITH %@", "Add New Keyboard")).firstMatch
+        tapSetting(general, in: settings)
+        tapSetting(settings.cells.containing(.staticText, identifier: "Keyboard").firstMatch, in: settings)
+        tapSetting(settings.cells.containing(.staticText, identifier: "Keyboards").firstMatch, in: settings)
+        let addKeyboard = settings.buttons["AddNewKeyboard"].firstMatch
         XCTAssertTrue(addKeyboard.waitForExistence(timeout: 10), settings.debugDescription)
-        addKeyboard.tap()
+        tapSetting(addKeyboard, in: settings)
         let keyboard = settings.cells["Keyboard Host"].firstMatch
         XCTAssertTrue(keyboard.waitForExistence(timeout: 10), settings.debugDescription)
-        keyboard.tap()
+        tapSetting(keyboard, in: settings)
 
         app.activate()
         field.tap()
@@ -38,12 +37,7 @@ final class KeyboardSmokeTests: XCTestCase {
         before.lifetime = .keepAlways
         add(before)
         let firstKey = key("h", in: app)
-        let geometryReady = expectation(for: NSPredicate { _, _ in
-            let frame = firstKey.frame
-            return frame.minX.isFinite && frame.minY.isFinite && frame.width.isFinite && frame.height.isFinite
-                && frame.width > 0 && frame.height > 0 && app.frame.contains(frame)
-        }, evaluatedWith: firstKey)
-        wait(for: [geometryReady], timeout: 30)
+        waitForOnScreen(firstKey, in: app)
         let inputReady = expectation(for: NSPredicate { _, _ in firstKey.isHittable }, evaluatedWith: firstKey)
         wait(for: [inputReady], timeout: 15)
         swipe(key("h", in: app), dx: 0, dy: -1)
@@ -176,9 +170,29 @@ final class KeyboardSmokeTests: XCTestCase {
             if key("q", in: app).waitForExistence(timeout: 3) { return }
             let globe = app.buttons["Next keyboard"].firstMatch
             XCTAssertTrue(globe.waitForExistence(timeout: 5), app.debugDescription)
+            waitForOnScreen(globe, in: app)
             // Native iPad keyboard elements can have valid frames but invalid AX hit points.
             coordinate(globe, in: app).tap()
         }
+    }
+
+    private func isOnScreen(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        return frame.minX.isFinite && frame.minY.isFinite && frame.width.isFinite && frame.height.isFinite
+            && frame.width > 0 && frame.height > 0 && app.frame.contains(frame)
+    }
+
+    private func waitForOnScreen(_ element: XCUIElement, in app: XCUIApplication) {
+        let ready = expectation(for: NSPredicate { _, _ in
+            self.isOnScreen(element, in: app)
+        }, evaluatedWith: element)
+        wait(for: [ready], timeout: 30)
+    }
+
+    private func tapSetting(_ element: XCUIElement, in app: XCUIApplication) {
+        waitForOnScreen(element, in: app)
+        coordinate(element, in: app).tap()
     }
 
     private func tap(_ key: XCUIElement) {
