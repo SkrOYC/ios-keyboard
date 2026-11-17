@@ -19,6 +19,7 @@ final class KeyboardViewController: UIInputViewController {
         debugLabel?.isAccessibilityElement = false
         if let debugLabel { view.addSubview(debugLabel) }
         keyboard.onAction = { [weak self] action in self?.perform(action) }
+        keyboard.onDiagnostic = { DebugLog.log($0) }
         DebugLog.log("ready · hex 7×4")
     }
 

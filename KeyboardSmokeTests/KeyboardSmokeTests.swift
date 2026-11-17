@@ -168,7 +168,9 @@ final class KeyboardSmokeTests: XCTestCase {
         for _ in 0..<5 {
             dismissSystemKeyboardIntroduction(in: app)
             if key("q", in: app).waitForExistence(timeout: 3) { return }
-            let globe = app.buttons["Next keyboard"].firstMatch
+            let globe = app.buttons.matching(NSPredicate(
+                format: "label == %@ OR label == %@", "Next keyboard", "Emoji"
+            )).firstMatch
             XCTAssertTrue(globe.waitForExistence(timeout: 5), app.debugDescription)
             waitForOnScreen(globe, in: app)
             // Native iPad keyboard elements can have valid frames but invalid AX hit points.
@@ -180,7 +182,8 @@ final class KeyboardSmokeTests: XCTestCase {
         guard element.exists else { return false }
         let frame = element.frame
         return frame.minX.isFinite && frame.minY.isFinite && frame.width.isFinite && frame.height.isFinite
-            && frame.width > 0 && frame.height > 0 && app.frame.contains(frame)
+            && frame.width > 0 && frame.height > 0
+            && app.frame.contains(CGPoint(x: frame.midX, y: frame.midY))
     }
 
     private func waitForOnScreen(_ element: XCUIElement, in app: XCUIApplication) {

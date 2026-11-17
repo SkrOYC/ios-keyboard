@@ -3,6 +3,7 @@ import UIKit
 /// Draw keycaps over the system's Liquid Glass platter without an opaque tray.
 final class HexKeyboardView: UIView {
     var onAction: ((KeyboardAction) -> Void)?
+    var onDiagnostic: ((String) -> Void)?
     private var machine = TouchMachine(geometry: HexGeometry())
     private var labels: [UILabel] = []
     private let glassRenderer = HexGlassRendererView()
@@ -193,6 +194,7 @@ final class HexKeyboardView: UIView {
         var coverage: [CGRect] = []
         for id in active.sorted() {
             guard let contact = machine.contacts[id], let popup = contact.popup else { continue }
+            let opened = popupRenderers[id] == nil
             if popupRenderers[id] == nil {
                 let renderer = HexGlassRendererView(materializes: true)
                 popupRenderers[id] = renderer
@@ -225,6 +227,7 @@ final class HexKeyboardView: UIView {
             renderer.frame = bounds
             renderer.update(surfaces: surfaces, size: bounds.size)
             renderer.setFeedback(pressed: Set(popup.entries.indices.filter { popup.entries[$0].choice == selected }))
+            if opened { onDiagnostic?("punctuation") }
         }
         // Obscure only glyphs covered by the floating punctuation surfaces.
         guard !coverage.isEmpty else { return [] }
@@ -315,10 +318,11 @@ final class HexKeyboardView: UIView {
     }
 
     private func pickerButton(_ title: String, prominent: Bool = false) -> UIButton {
-        let button = UIButton(type: .system)
-        button.configuration = prominent ? .prominentGlass() : .glass()
-        button.setTitle(title, for: .normal)
-        button.titleLabel?.font = .preferredFont(forTextStyle: .body)
+        var configuration: UIButton.Configuration = prominent ? .prominentGlass() : .glass()
+        configuration.title = title
+        if prominent { configuration.baseForegroundColor = .white }
+        let button = UIButton(configuration: configuration)
+        button.titleLabel?.font = .preferredFont(forTextStyle: prominent ? .headline : .body)
         return button
     }
 

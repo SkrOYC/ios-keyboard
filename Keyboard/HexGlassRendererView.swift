@@ -52,6 +52,7 @@ final class HexGlassRendererView: UIView {
             return HexGlassItem(id: surface.id, frame: frame,
                                 footprint: polygon.cgPath.union(border), label: surface.label)
         }
+        for item in items { item.label.isHidden = obscured.contains(item.id) }
         render()
     }
 
@@ -61,6 +62,7 @@ final class HexGlassRendererView: UIView {
         guard visible != pressed || covered != obscured else { return }
         pressed = visible
         obscured = covered
+        for item in items { item.label.isHidden = covered.contains(item.id) }
         render()
     }
 
@@ -124,15 +126,15 @@ private struct HexGlassCanvas: View {
     var body: some View {
         GlassEffectContainer(spacing: 0) {
             ZStack {
-                ForEach(appeared || !materializes ? items : []) { item in
+                ForEach(items) { item in
                     let down = pressed.contains(item.id)
+                    let material: Glass = appeared || !materializes
+                        ? (down ? .regular.tint(.blue.opacity(0.18)) : .regular) : .identity
                     HexGlassLabel(label: item.label)
                         .opacity(obscured.contains(item.id) ? 0 : 1)
                         .frame(width: item.frame.width, height: item.frame.height)
-                        .glassEffect(down ? .regular.tint(.blue.opacity(0.18)) : .regular,
-                                     in: HexGlassFootprint(outline: item.footprint, size: item.frame.size))
+                        .glassEffect(material, in: HexGlassFootprint(outline: item.footprint, size: item.frame.size))
                         .glassEffectID(item.id, in: effects)
-                        .glassEffectTransition(.materialize)
                         .scaleEffect(down && !reduceMotion ? 0.975 : 1)
                         .position(x: item.frame.midX, y: item.frame.midY)
                         .animation(reduceMotion ? nil : .easeOut(duration: down ? 0.08 : 0.16), value: down)
