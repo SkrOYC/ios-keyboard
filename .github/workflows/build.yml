@@ -21,7 +21,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        probe: [phone, tablet]
+        probe: [phone, phone-dark, phone-contrast, tablet]
+    env:
+      IOS_PROBE_APPEARANCE: ${{ (matrix.probe == 'phone-dark' || matrix.probe == 'tablet') && 'dark' || 'light' }}
+      IOS_PROBE_CONTRAST: ${{ matrix.probe == 'phone-contrast' && 'enabled' || 'disabled' }}
     permissions:
       contents: write
     defaults:
@@ -54,15 +57,15 @@ jobs:
         run: direnv exec . ios-project
 
       - name: Boot matching iOS simulator
-        if: matrix.probe == 'phone'
+        if: matrix.probe != 'tablet'
         run: direnv exec . ios-simulator
 
       - name: Compile host, keyboard, and UI tests
-        if: matrix.probe == 'phone'
+        if: matrix.probe != 'tablet'
         run: direnv exec . ios-test-build
 
       - name: Enable and exercise the keyboard in Settings
-        if: matrix.probe == 'phone'
+        if: matrix.probe != 'tablet'
         run: direnv exec . ios-test-run
 
       - name: Exercise Release keyboard on iPad
@@ -81,7 +84,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ${{ matrix.probe == 'phone' && 'lifecycle-evidence' || 'lifecycle-evidence-tablet' }}
+          name: ${{ matrix.probe == 'phone' && 'lifecycle-evidence' || matrix.probe == 'phone-dark' && 'lifecycle-evidence-phone-dark' || matrix.probe == 'phone-contrast' && 'lifecycle-evidence-phone-contrast' || 'lifecycle-evidence-tablet' }}
           path: |
             build/*.log
             build/*.xcresult

@@ -51,10 +51,19 @@ print(phones[0])
   /usr/bin/defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
   /usr/bin/xcrun simctl boot "$simulator" || true
   /usr/bin/xcrun simctl bootstatus "$simulator" -b
-  /usr/bin/xcrun simctl help ui > build/simulator-ui-help.txt
-  local probe_appearance=light
+  /usr/bin/xcrun simctl help ui > build/simulator-ui-help.txt 2>&1
+  local probe_appearance=${IOS_PROBE_APPEARANCE:-light}
+  local probe_contrast=${IOS_PROBE_CONTRAST:-disabled}
   if [[ $device_family == iPad ]]; then probe_appearance=dark; fi
+  case $probe_appearance in light|dark) ;; *) print -u2 'Unsupported probe appearance'; return 1 ;; esac
+  case $probe_contrast in enabled|disabled) ;; *) print -u2 'Unsupported probe contrast'; return 1 ;; esac
   /usr/bin/xcrun simctl ui "$simulator" appearance "$probe_appearance"
+  /usr/bin/xcrun simctl ui "$simulator" increase_contrast "$probe_contrast"
+  local appearance_state=$(/usr/bin/xcrun simctl ui "$simulator" appearance)
+  local contrast_state=$(/usr/bin/xcrun simctl ui "$simulator" increase_contrast)
+  [[ $appearance_state == $probe_appearance && $contrast_state == $probe_contrast ]]
+  print -r -- "$appearance_state" > build/probe-appearance.txt
+  print -r -- "$contrast_state" > build/probe-contrast.txt
 }
 
 ensure_simulator_ready() {

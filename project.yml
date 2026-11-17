@@ -95,7 +95,7 @@ targets:
     sources:
       - path: Keyboard/Core
       - path: Keyboard/HexKeyboardView.swift
-      - path: Keyboard/HexGlassKeyView.swift
+      - path: Keyboard/HexGlassRendererView.swift
       - path: KeyboardViewTests
     settings:
       base:

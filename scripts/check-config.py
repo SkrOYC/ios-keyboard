@@ -21,24 +21,31 @@ def main():
     assert workflow["jobs"]["build"]["runs-on"] == "macos-26"
     assert workflow["jobs"]["build"]["timeout-minutes"] == 45
     build_job = workflow["jobs"]["build"]
-    assert build_job["strategy"] == {"fail-fast": False, "matrix": {"probe": ["phone", "tablet"]}}
+    assert build_job["strategy"] == {
+        "fail-fast": False,
+        "matrix": {"probe": ["phone", "phone-dark", "phone-contrast", "tablet"]},
+    }
+    assert build_job["env"] == {
+        "IOS_PROBE_APPEARANCE": "${{ (matrix.probe == 'phone-dark' || matrix.probe == 'tablet') && 'dark' || 'light' }}",
+        "IOS_PROBE_CONTRAST": "${{ matrix.probe == 'phone-contrast' && 'enabled' || 'disabled' }}",
+    }
     steps = {step.get("name"): step for step in build_job["steps"]}
-    for name, command, probe in (
-        ("Boot matching iOS simulator", "ios-simulator", "phone"),
-        ("Compile host, keyboard, and UI tests", "ios-test-build", "phone"),
-        ("Enable and exercise the keyboard in Settings", "ios-test-run", "phone"),
-        ("Exercise Release keyboard on iPad", "ios-ipad-test", "tablet"),
-        ("Archive unsigned device app", "ios-archive", "phone"),
-        ("Package and verify device IPA", "ios-package", "phone"),
+    for name, command, condition in (
+        ("Boot matching iOS simulator", "ios-simulator", "matrix.probe != 'tablet'"),
+        ("Compile host, keyboard, and UI tests", "ios-test-build", "matrix.probe != 'tablet'"),
+        ("Enable and exercise the keyboard in Settings", "ios-test-run", "matrix.probe != 'tablet'"),
+        ("Exercise Release keyboard on iPad", "ios-ipad-test", "matrix.probe == 'tablet'"),
+        ("Archive unsigned device app", "ios-archive", "matrix.probe == 'phone'"),
+        ("Package and verify device IPA", "ios-package", "matrix.probe == 'phone'"),
     ):
         step = steps[name]
         assert step["run"] == "direnv exec . " + command
-        assert step["if"] == "matrix.probe == '" + probe + "'"
+        assert step["if"] == condition
         assert not step.get("continue-on-error", False)
     assert not build_job.get("continue-on-error", False)
     evidence = steps["Upload logs and simulator evidence"]
     assert evidence["if"] == "always()"
-    assert evidence["with"]["name"] == "${{ matrix.probe == 'phone' && 'lifecycle-evidence' || 'lifecycle-evidence-tablet' }}"
+    assert evidence["with"]["name"] == "${{ matrix.probe == 'phone' && 'lifecycle-evidence' || matrix.probe == 'phone-dark' && 'lifecycle-evidence-phone-dark' || matrix.probe == 'phone-contrast' && 'lifecycle-evidence-phone-contrast' || 'lifecycle-evidence-tablet' }}"
     assert steps["Upload verified IPA"]["if"] == "matrix.probe == 'phone'"
     assert spec["targets"]["KeyboardHost"]["dependencies"] == [
         {"target": "Keyboard", "embed": True}
@@ -64,7 +71,7 @@ def main():
     renderer = spec["targets"]["KeyboardViewTests"]
     assert renderer["type"] == "bundle.unit-test"
     assert {source["path"] for source in renderer["sources"]} == {
-        "Keyboard/Core", "Keyboard/HexKeyboardView.swift", "Keyboard/HexGlassKeyView.swift", "KeyboardViewTests"
+        "Keyboard/Core", "Keyboard/HexKeyboardView.swift", "Keyboard/HexGlassRendererView.swift", "KeyboardViewTests"
     }
     assert "KeyboardViewTests" in spec["targets"]["KeyboardHost"]["scheme"]["testTargets"]
     for source in Path("Keyboard/Core").glob("*.swift"):
