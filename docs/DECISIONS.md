@@ -90,3 +90,4 @@ These decisions define the implementation and its verification, including the na
 - D86: Wait for visible keys during asynchronous activation because a keyboard service can become ready after its OS switcher disappears.
 - D87: Log popup creation with a neutral action name because visual evidence must distinguish model opening from material rendering.
 - D88: Report simulator memory observations separately from device performance because screenshots do not establish peak footprint or typing latency.
+- D89: Squash the verified feature and remove its completed branch because the keyboard changes form one coherent repository update.
