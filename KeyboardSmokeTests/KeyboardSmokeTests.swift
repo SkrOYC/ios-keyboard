@@ -168,12 +168,19 @@ final class KeyboardSmokeTests: XCTestCase {
     private func selectKeyboardExtension(in app: XCUIApplication) {
         for _ in 0..<5 {
             dismissSystemKeyboardIntroduction(in: app)
-            if key("q", in: app).waitForExistence(timeout: 3) { return }
+            let first = key("q", in: app)
+            let keysReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.isOnScreen(first, in: app)
+            }, object: first)
+            if XCTWaiter.wait(for: [keysReady], timeout: 15) == .completed { return }
             let globe = app.buttons.matching(NSPredicate(
                 format: "label == %@ OR label == %@", "Next keyboard", "Emoji"
             )).firstMatch
-            XCTAssertTrue(globe.waitForExistence(timeout: 5), app.debugDescription)
-            waitForOnScreen(globe, in: app)
+            let inputReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                self.isOnScreen(first, in: app) || self.isOnScreen(globe, in: app)
+            }, object: app)
+            XCTAssertEqual(XCTWaiter.wait(for: [inputReady], timeout: 15), .completed, app.debugDescription)
+            if isOnScreen(first, in: app) { return }
             // Native iPad keyboard elements can have valid frames but invalid AX hit points.
             coordinate(globe, in: app).tap()
         }

@@ -302,7 +302,7 @@ final class HexKeyboardView: UIView {
             choices.addArrangedSubview(button)
         }
         panel.addArrangedSubview(choices)
-        let close = pickerButton("Done", prominent: true)
+        let close = pickerButton("Done")
         close.accessibilityIdentifier = "preset-done"
         close.heightAnchor.constraint(equalToConstant: 44).isActive = true
         close.addAction(UIAction { [weak self] _ in self?.hidePicker() }, for: .touchUpInside)
@@ -317,12 +317,11 @@ final class HexKeyboardView: UIView {
         UIAccessibility.post(notification: .layoutChanged, argument: title)
     }
 
-    private func pickerButton(_ title: String, prominent: Bool = false) -> UIButton {
-        var configuration: UIButton.Configuration = prominent ? .prominentGlass() : .glass()
+    private func pickerButton(_ title: String) -> UIButton {
+        var configuration = UIButton.Configuration.glass()
         configuration.title = title
-        if prominent { configuration.baseForegroundColor = .white }
         let button = UIButton(configuration: configuration)
-        button.titleLabel?.font = .preferredFont(forTextStyle: prominent ? .headline : .body)
+        button.titleLabel?.font = .preferredFont(forTextStyle: .body)
         return button
     }
 
