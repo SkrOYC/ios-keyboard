@@ -28,9 +28,10 @@ final class KeyboardSmokeTests: XCTestCase {
         tapSetting(keyboard, in: settings)
 
         app.activate()
-        field.tap()
+        if !app.keyboards.firstMatch.waitForExistence(timeout: 5) { field.tap() }
         dismissSystemKeyboardIntroduction(in: app)
         selectKeyboardExtension(in: app)
+        dismissEditingMenu(in: app)
         XCTAssertTrue(key("q", in: app).waitForExistence(timeout: 10), app.debugDescription)
         let before = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         before.name = "Keyboard before gestures"
@@ -176,6 +177,18 @@ final class KeyboardSmokeTests: XCTestCase {
             // Native iPad keyboard elements can have valid frames but invalid AX hit points.
             coordinate(globe, in: app).tap()
         }
+    }
+
+    private func dismissEditingMenu(in app: XCUIApplication) {
+        let menu = app.descendants(matching: .any)["AutoFill"].firstMatch
+        guard isOnScreen(menu, in: app) else { return }
+        let navigation = app.navigationBars.firstMatch
+        waitForOnScreen(navigation, in: app)
+        coordinate(navigation, in: app).tap()
+        let dismissed = expectation(for: NSPredicate { _, _ in
+            !self.isOnScreen(menu, in: app)
+        }, evaluatedWith: menu)
+        wait(for: [dismissed], timeout: 5)
     }
 
     private func isOnScreen(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
