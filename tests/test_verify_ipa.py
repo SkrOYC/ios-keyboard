@@ -12,8 +12,9 @@ spec.loader.exec_module(module)
 
 class VerifyIPATests(unittest.TestCase):
     def make_ipa(self, path, *, platform="iPhoneOS", extension_id="com.example.keyboard.Keyboard",
-                 executable_mode=0o100755, full_access=False, profile=False, missing_extension=False):
-        common = {"CFBundleShortVersionString": "0.2.0", "CFBundleVersion": "2",
+                 executable_mode=0o100755, full_access=False, profile=False, missing_extension=False,
+                 version="0.3.0", build="3", test_bundle=False, network_exception=False):
+        common = {"CFBundleShortVersionString": version, "CFBundleVersion": build,
                   "CFBundleSupportedPlatforms": [platform], "MinimumOSVersion": "26.0"}
         host = dict(common, CFBundleIdentifier="com.example.keyboard",
                     CFBundlePackageType="APPL", CFBundleExecutable="KeyboardHost")
@@ -22,6 +23,8 @@ class VerifyIPATests(unittest.TestCase):
                         NSExtension={"NSExtensionPointIdentifier": "com.apple.keyboard-service",
                                      "NSExtensionPrincipalClass": "Keyboard.KeyboardViewController",
                                      "NSExtensionAttributes": {"RequestsOpenAccess": full_access}})
+        if network_exception:
+            host["NSAppTransportSecurity"] = {"NSAllowsArbitraryLoads": True}
         with zipfile.ZipFile(path, "w") as archive:
             bundles = [("Payload/KeyboardHost.app/", host)]
             if not missing_extension:
@@ -31,6 +34,8 @@ class VerifyIPATests(unittest.TestCase):
                 entry = zipfile.ZipInfo(root + info["CFBundleExecutable"])
                 entry.external_attr = executable_mode << 16
                 archive.writestr(entry, b"fixture executable")
+            if test_bundle:
+                archive.writestr("Payload/KeyboardHost.app/PlugIns/LogicTests.xctest/Info.plist", b"test bundle")
             if profile:
                 archive.writestr("Payload/KeyboardHost.app/embedded.mobileprovision", b"profile")
 
@@ -43,7 +48,8 @@ class VerifyIPATests(unittest.TestCase):
     def test_rejects_unsuitable_sideload_artifacts(self):
         cases = [{"platform": "iPhoneSimulator"}, {"extension_id": "com.other.Keyboard"},
                  {"executable_mode": 0o100644}, {"full_access": True}, {"profile": True},
-                 {"missing_extension": True}]
+                 {"missing_extension": True}, {"version": "0.3"}, {"build": "0"},
+                 {"test_bundle": True}, {"network_exception": True}]
         for case in cases:
             with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
                 path = Path(directory, "app.ipa")

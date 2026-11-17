@@ -55,6 +55,7 @@
         ios-simulator = "zsh scripts/ios.zsh simulator";
         ios-test-build = "zsh scripts/ios.zsh test-build";
         ios-test-run = "zsh scripts/ios.zsh test-run";
+        ios-ipad-test = "zsh scripts/ios.zsh ipad-test";
         ios-archive = "zsh scripts/ios.zsh archive";
         ios-package = "zsh scripts/ios.zsh package";
         ipa-check = ''python3 scripts/verify-ipa.py "$@"'';

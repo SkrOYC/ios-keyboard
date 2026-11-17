@@ -18,6 +18,13 @@ jobs:
   build:
     runs-on: macos-26
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        probe: [phone, phone-dark, phone-contrast, tablet]
+    env:
+      IOS_PROBE_APPEARANCE: ${{ (matrix.probe == 'phone-dark' || matrix.probe == 'tablet') && 'dark' || 'light' }}
+      IOS_PROBE_CONTRAST: ${{ matrix.probe == 'phone-contrast' && 'enabled' || 'disabled' }}
     permissions:
       contents: write
     defaults:
@@ -50,35 +57,47 @@ jobs:
         run: direnv exec . ios-project
 
       - name: Boot matching iOS simulator
+        if: matrix.probe != 'tablet'
         run: direnv exec . ios-simulator
 
       - name: Compile host, keyboard, and UI tests
+        if: matrix.probe != 'tablet'
         run: direnv exec . ios-test-build
 
       - name: Enable and exercise the keyboard in Settings
+        if: matrix.probe != 'tablet'
         run: direnv exec . ios-test-run
 
+      - name: Exercise Release keyboard on iPad
+        if: matrix.probe == 'tablet'
+        run: direnv exec . ios-ipad-test
+
       - name: Archive unsigned device app
+        if: matrix.probe == 'phone'
         run: direnv exec . ios-archive
 
       - name: Package and verify device IPA
+        if: matrix.probe == 'phone'
         run: direnv exec . ios-package
 
       - name: Upload logs and simulator evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: lifecycle-evidence
+          name: ${{ matrix.probe == 'phone' && 'lifecycle-evidence' || matrix.probe == 'phone-dark' && 'lifecycle-evidence-phone-dark' || matrix.probe == 'phone-contrast' && 'lifecycle-evidence-phone-contrast' || 'lifecycle-evidence-tablet' }}
           path: |
             build/*.log
             build/*.xcresult
             build/*.png
+            build/*.mp4
+            build/screenshots/
             build/*.json
             build/*.txt
           if-no-files-found: ignore
           retention-days: 7
 
       - name: Upload verified IPA
+        if: matrix.probe == 'phone'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: KeyboardHost-ipa
@@ -89,7 +108,7 @@ jobs:
           retention-days: 7
 
       - name: Publish a phone download
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        if: matrix.probe == 'phone' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

@@ -27,9 +27,11 @@ generate_project() {
   /usr/bin/xcrun --sdk iphoneos --show-sdk-version
   xcodegen --version
   xcodegen generate
+  /usr/bin/xcrun --sdk macosx swiftc -swift-version 5 scripts/export-simulator-frames.swift -o build/export-simulator-frames
 }
 
 prepare_simulator() {
+  local device_family=${1:-iPhone}
   # A newer runtime can boot through simctl while being ineligible for Xcode.
   simulator_sdk=$(/usr/bin/xcrun --sdk iphonesimulator --show-sdk-version)
   /usr/bin/xcrun simctl list devices available --json > build/simulators.json
@@ -39,48 +41,115 @@ devices = json.load(sys.stdin)["devices"]
 prefix = ".iOS-" + sys.argv[1].replace(".", "-")
 phones = [d["udid"] for runtime, entries in devices.items()
           if runtime.endswith(prefix) or prefix + "-" in runtime
-          for d in entries if d["name"].startswith("iPhone")]
+          for d in entries if d["name"].startswith(sys.argv[2])]
 if not phones:
-    sys.exit("No available iPhone simulator matching SDK " + sys.argv[1])
+    sys.exit("No available matching simulator for SDK " + sys.argv[1])
 print(phones[0])
-' "$simulator_sdk" < build/simulators.json)
+' "$simulator_sdk" "$device_family" < build/simulators.json)
   print -r -- "$simulator" > build/simulator-id.txt
   print "Simulator: $simulator; SDK: $simulator_sdk"
   /usr/bin/defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
   /usr/bin/xcrun simctl boot "$simulator" || true
   /usr/bin/xcrun simctl bootstatus "$simulator" -b
+  /usr/bin/xcrun simctl help ui > build/simulator-ui-help.txt 2>&1
+  local probe_appearance=${IOS_PROBE_APPEARANCE:-light}
+  local probe_contrast=${IOS_PROBE_CONTRAST:-disabled}
+  if [[ $device_family == iPad ]]; then probe_appearance=dark; fi
+  case $probe_appearance in light|dark) ;; *) print -u2 'Unsupported probe appearance'; return 1 ;; esac
+  case $probe_contrast in enabled|disabled) ;; *) print -u2 'Unsupported probe contrast'; return 1 ;; esac
+  /usr/bin/xcrun simctl ui "$simulator" appearance "$probe_appearance"
+  /usr/bin/xcrun simctl ui "$simulator" increase_contrast "$probe_contrast"
+  local appearance_state=$(/usr/bin/xcrun simctl ui "$simulator" appearance)
+  local contrast_state=$(/usr/bin/xcrun simctl ui "$simulator" increase_contrast)
+  [[ $appearance_state == $probe_appearance && $contrast_state == $probe_contrast ]]
+  print -r -- "$appearance_state" > build/probe-appearance.txt
+  print -r -- "$contrast_state" > build/probe-contrast.txt
+}
+
+ensure_simulator_ready() {
+  # Refresh the daemon connection at each Xcode boundary, not only during boot.
+  /usr/bin/xcrun simctl bootstatus "$simulator" -b
+  /usr/bin/xcrun simctl list devices available --json > build/simulator-readiness.json
+  python3 -c '
+import json, sys
+devices = [device for entries in json.load(sys.stdin)["devices"].values() for device in entries]
+selected = next((device for device in devices if device["udid"] == sys.argv[1]), None)
+if selected is None or selected.get("state") != "Booted":
+    sys.exit("The selected simulator is not available and booted")
+' "$simulator" < build/simulator-readiness.json
 }
 
 compile_tests() {
+  local probe_configuration=${1:-Debug}
+  local compile_log="build/compile-${probe_configuration}.log"
   simulator=$(cat build/simulator-id.txt)
+  ensure_simulator_ready
   if ! /usr/bin/xcodebuild build-for-testing \
-    -project KeyboardHost.xcodeproj -scheme KeyboardHost -configuration Debug \
+    -project KeyboardHost.xcodeproj -scheme KeyboardHost -configuration "$probe_configuration" \
     -destination "platform=iOS Simulator,id=$simulator" -destination-timeout 30 \
     -derivedDataPath "$PWD/build/DerivedData" \
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
-    > build/compile.log 2>&1; then
-    report_failure build/compile.log
+    > "$compile_log" 2>&1; then
+    report_failure "$compile_log"
     return 1
   fi
-  tail -n 8 build/compile.log
+  tail -n 8 "$compile_log"
+}
+
+collect_extension_diagnostics() {
+  local probe_name=$1
+  /usr/bin/xcrun simctl spawn "$simulator" log help show > build/log-show-help.txt 2>&1 || true
+  /usr/bin/xcrun simctl spawn "$simulator" log show --style compact --last 10m --info --debug \
+    --predicate 'process == "Keyboard" OR eventMessage CONTAINS "com.skroyc.keyboard.Keyboard"' \
+    > "build/${probe_name}-extension.log" 2>&1 || true
+  python3 - "$probe_name" <<'PY'
+from pathlib import Path
+import shutil
+import sys
+
+reports = Path.home() / "Library/Logs/DiagnosticReports"
+for index, report in enumerate(sorted(reports.glob("Keyboard*.ips"))):
+    shutil.copyfile(report, Path("build") / f"{sys.argv[1]}-crash-{index}.txt")
+PY
 }
 
 run_tests() {
+  local probe_name=${1:-SmokeTests}
+  local probe_configuration=${2:-Debug}
+  local probe_log="build/${probe_name}.log"
+  local probe_result="build/${probe_name}.xcresult"
+  local probe_screenshots="build/screenshots/${probe_name}"
   simulator=$(cat build/simulator-id.txt)
-  rm -rf build/SmokeTests.xcresult
+  ensure_simulator_ready
+  rm -rf "$probe_result"
+  local popup_capture_pid
+  local capture_done="build/${probe_name}-capture-done.txt"
+  rm -f "$capture_done"
+  python3 scripts/capture-popup-evidence.py "$simulator" "$probe_log" "build/${probe_name}" &
+  popup_capture_pid=$!
   if ! /usr/bin/xcodebuild test-without-building \
-    -project KeyboardHost.xcodeproj -scheme KeyboardHost -configuration Debug \
+    -project KeyboardHost.xcodeproj -scheme KeyboardHost -configuration "$probe_configuration" \
     -destination "platform=iOS Simulator,id=$simulator" -destination-timeout 30 \
     -derivedDataPath "$PWD/build/DerivedData" -parallel-testing-enabled NO \
-    -resultBundlePath "$PWD/build/SmokeTests.xcresult" \
+    -resultBundlePath "$PWD/$probe_result" \
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
-    > build/simulator.log 2>&1; then
-    /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/simulator-failure.png" || true
-    report_failure build/simulator.log
+    > "$probe_log" 2>&1; then
+    print -r -- failure > "$capture_done"
+    wait "$popup_capture_pid" 2>/dev/null || true
+    collect_extension_diagnostics "$probe_name" || true
+    /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/${probe_name}-failure.png" || true
+    /usr/bin/xcrun xcresulttool export attachments --path "$probe_result" --output-path "$probe_screenshots" || true
+    report_failure "$probe_log"
     return 1
   fi
-  /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/simulator.png"
-  tail -n 25 build/simulator.log
+  print -r -- success > "$capture_done"
+  local capture_result=0
+  wait "$popup_capture_pid" || capture_result=$?
+  /usr/bin/xcrun xcresulttool export attachments --help > build/xcresult-export-help.txt
+  /usr/bin/xcrun xcresulttool export attachments --path "$probe_result" --output-path "$probe_screenshots"
+  /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/${probe_name}.png"
+  tail -n 25 "$probe_log"
+  return "$capture_result"
 }
 
 archive_app() {
@@ -118,12 +187,13 @@ case "${1:-}" in
   simulator) prepare_simulator ;;
   test-build) compile_tests ;;
   test-run) run_tests ;;
+  ipad-test) prepare_simulator iPad; compile_tests Release; run_tests TabletTests Release ;;
   archive) archive_app ;;
   package) package_ipa ;;
   build) generate_project; archive_app; package_ipa ;;
   test) generate_project; prepare_simulator; compile_tests; run_tests ;;
   *)
-    print -u2 'Usage: zsh scripts/ios.zsh project|simulator|test-build|test-run|archive|package|build|test'
+    print -u2 'Usage: zsh scripts/ios.zsh project|simulator|test-build|test-run|ipad-test|archive|package|build|test'
     exit 2
     ;;
 esac
