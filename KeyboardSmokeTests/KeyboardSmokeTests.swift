@@ -174,7 +174,7 @@ final class KeyboardSmokeTests: XCTestCase {
             }, object: first)
             if XCTWaiter.wait(for: [keysReady], timeout: 15) == .completed { return }
             let globe = app.buttons.matching(NSPredicate(
-                format: "label == %@ OR label == %@", "Next keyboard", "Emoji"
+                format: "label == %@ OR (label == %@ AND value == %@)", "Next keyboard", "Emoji", "Keyboard"
             )).firstMatch
             let inputReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                 self.isOnScreen(first, in: app) || self.isOnScreen(globe, in: app)
