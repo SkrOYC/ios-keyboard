@@ -2,23 +2,11 @@ import UIKit
 
 /// Draw keycaps over the system's Liquid Glass platter without an opaque tray.
 final class HexKeyboardView: UIView {
-    private enum Glass {
-        static let keyFill = UIColor { traits in
-            traits.userInterfaceStyle == .dark ? UIColor(white: 1, alpha: 0.16) : .white
-        }
-        static let keyPressedFill = UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(white: 1, alpha: 0.28)
-                : UIColor(red: 0.847, green: 0.863, blue: 0.894, alpha: 1)
-        }
-    }
-
     var onAction: ((KeyboardAction) -> Void)?
     private var machine = TouchMachine(geometry: HexGeometry())
-    private var shapes: [CAShapeLayer] = []
     private var labels: [UILabel] = []
     private let glassRenderer = HexGlassRendererView()
-    private let glassSlots: Set<Int> = [0, 1, 4]
+    private let glassSlots = Set(0..<28)
     private var keyElements: [KeyAccessibilityElement] = []
     private var touchIDs: [ObjectIdentifier: Int] = [:]
     private let presetStore = PresetStore()
@@ -26,8 +14,7 @@ final class HexKeyboardView: UIView {
     private var pickerChoices: UIStackView?
     private var nextID = 0
     private var holdTimers: [Int: Timer] = [:]
-    private var popupBackdrops: [Int: [CAShapeLayer]] = [:]
-    private var popupShapes: [Int: [CAShapeLayer]] = [:]
+    private var popupRenderers: [Int: HexGlassRendererView] = [:]
     private var popupLabels: [Int: [UILabel]] = [:]
 
     var needsGlobe: Bool {
@@ -49,11 +36,6 @@ final class HexKeyboardView: UIView {
         machine.pickerEnabled = true
         addSubview(glassRenderer)
         for key in machine.geometry.keys {
-            let shape = CAShapeLayer()
-            shape.lineJoin = .round
-            layer.addSublayer(shape)
-            shapes.append(shape)
-            shape.isHidden = glassSlots.contains(key.slot)
             let label = UILabel()
             label.backgroundColor = .clear
             label.isOpaque = false
@@ -61,7 +43,6 @@ final class HexKeyboardView: UIView {
             label.textColor = .label
             label.isUserInteractionEnabled = false
             label.isAccessibilityElement = false
-            if !glassSlots.contains(key.slot) { addSubview(label) }
             labels.append(label)
             let element = KeyAccessibilityElement(accessibilityContainer: self)
             element.isAccessibilityElement = true
@@ -89,13 +70,10 @@ final class HexKeyboardView: UIView {
         CATransaction.setDisableActions(true)
         for key in g.keys {
             let center = g.center(of: key)
-            shapes[key.slot].path = path(g.polygon(of: key)).cgPath
-            shapes[key.slot].lineWidth = CGFloat(g.stroke)
             let radius = CGFloat(g.radius)
             let apothem = CGFloat(g.apothem)
             let rect = CGRect(x: CGFloat(center.x) - radius, y: CGFloat(center.y) - apothem,
                               width: 2 * radius, height: 2 * apothem)
-            if !glassSlots.contains(key.slot) { labels[key.slot].frame = rect }
             keyElements[key.slot].accessibilityFrameInContainerSpace = rect
         }
         glassRenderer.frame = bounds
@@ -103,16 +81,6 @@ final class HexKeyboardView: UIView {
         refresh()
         layoutPicker()
         CATransaction.commit()
-    }
-
-    private func path(_ points: [HexPoint]) -> UIBezierPath {
-        let path = UIBezierPath()
-        for (index, point) in points.enumerated() {
-            let p = CGPoint(x: point.x, y: point.y)
-            if index == 0 { path.move(to: p) } else { path.addLine(to: p) }
-        }
-        path.close()
-        return path
     }
 
     private func refresh() {
@@ -127,17 +95,14 @@ final class HexKeyboardView: UIView {
             let verticalLimit: CGFloat = key.letterIndex == nil ? 0.85 : 1.1
             let size = min(26, units * CGFloat(machine.scale), CGFloat(machine.geometry.apothem) * verticalLimit)
             labels[key.slot].font = .systemFont(ofSize: size, weight: number ? .semibold : .medium)
-            let fill = pressed.contains(key.slot) ? Glass.keyPressedFill : Glass.keyFill
-            shapes[key.slot].fillColor = fill.resolvedColor(with: traitCollection).cgColor
-            shapes[key.slot].strokeColor = fill.resolvedColor(with: traitCollection).cgColor
             let element = keyElements[key.slot]
             element.accessibilityIdentifier = key.isLayer ? "key-123" : key.isPeriod ? "key-period" : "key-\(title)"
             element.accessibilityLabel = key.isLayer ? (machine.layer == .letters ? "Symbols" : "Letters") : key.isPeriod ? "Period" : title
             element.accessibilityHint = key.isLayer ? "Hold to choose a letter order" : key.isPeriod ? (machine.needsGlobe ? "Hold for punctuation and the next keyboard" : "Hold for punctuation") : "Swipe left to delete, right for space, down for return, or up on a letter to capitalize"
             element.accessibilityCustomActions = customActions(for: key)
         }
-        glassRenderer.setPressed(pressed)
-        refreshPopups()
+        let obscured = refreshPopups()
+        glassRenderer.setFeedback(pressed: pressed, obscured: obscured)
         CATransaction.commit()
     }
 
@@ -219,65 +184,58 @@ final class HexKeyboardView: UIView {
         RunLoop.main.add(timer, forMode: .common)
     }
 
-    private func refreshPopups() {
+    private func refreshPopups() -> Set<Int> {
         let active = Set(machine.contacts.compactMap { $0.value.popup == nil ? nil : $0.key })
-        for id in Array(popupShapes.keys) where !active.contains(id) {
-            popupBackdrops.removeValue(forKey: id)?.forEach { $0.removeFromSuperlayer() }
-            popupShapes.removeValue(forKey: id)?.forEach { $0.removeFromSuperlayer() }
-            popupLabels.removeValue(forKey: id)?.forEach { $0.removeFromSuperview() }
+        for id in Array(popupRenderers.keys) where !active.contains(id) {
+            popupRenderers.removeValue(forKey: id)?.removeFromSuperview()
+            popupLabels.removeValue(forKey: id)
         }
+        var coverage: [CGRect] = []
         for id in active.sorted() {
             guard let contact = machine.contacts[id], let popup = contact.popup else { continue }
-            if popupShapes[id] == nil {
-                var backdrops: [CAShapeLayer] = []
-                popupShapes[id] = popup.entries.map { _ in
-                    let backdrop = CAShapeLayer()
-                    backdrop.lineJoin = .round
-                    backdrop.shadowColor = UIColor.black.cgColor
-                    backdrop.shadowOpacity = 0.2
-                    backdrop.shadowRadius = 3
-                    backdrop.shadowOffset = CGSize(width: 0, height: 2)
-                    layer.addSublayer(backdrop)
-                    backdrops.append(backdrop)
-                    let shape = CAShapeLayer()
-                    shape.lineJoin = .round
-                    layer.addSublayer(shape)
-                    return shape
-                }
-                popupBackdrops[id] = backdrops
+            if popupRenderers[id] == nil {
+                let renderer = HexGlassRendererView(materializes: true)
+                popupRenderers[id] = renderer
+                addSubview(renderer)
                 popupLabels[id] = popup.entries.map { _ in
                     let label = UILabel()
                     label.textAlignment = .center
+                    label.backgroundColor = .clear
+                    label.isOpaque = false
                     label.isUserInteractionEnabled = false
                     label.isAccessibilityElement = false
-                    addSubview(label)
                     return label
                 }
             }
             let selected = popup.selection(at: contact.location)
-            for (index, entry) in popup.entries.enumerated() {
-                let shape = popupShapes[id]![index], label = popupLabels[id]![index]
-                shape.path = path(machine.geometry.polygon(center: entry.center, apothem: popup.apothem - machine.geometry.stroke / 2)).cgPath
-                shape.lineWidth = CGFloat(machine.geometry.stroke)
-                // Keep underlying key glyphs out of the translucent popup surface.
-                let backdrop = popupBackdrops[id]![index]
-                backdrop.path = shape.path
-                backdrop.lineWidth = shape.lineWidth
-                let background = UIColor.secondarySystemBackground.resolvedColor(with: traitCollection).cgColor
-                backdrop.fillColor = background
-                backdrop.strokeColor = background
-                let fill = entry.choice == selected ? Glass.keyPressedFill : Glass.keyFill
-                shape.fillColor = fill.resolvedColor(with: traitCollection).cgColor
-                shape.strokeColor = fill.resolvedColor(with: traitCollection).cgColor
+            let surfaces = popup.entries.enumerated().map { index, entry in
+                let label = popupLabels[id]![index]
                 label.text = entry.choice.label
                 label.textColor = .label
                 let a = CGFloat(popup.apothem)
                 let radius = a / CGFloat(HexGeometry.cosine30) * CGFloat(popup.horizontalScale)
                 label.font = .systemFont(ofSize: min(24, a * 1.05))
-                label.frame = CGRect(x: CGFloat(entry.center.x) - radius, y: CGFloat(entry.center.y) - a,
-                                     width: 2 * radius, height: 2 * a)
+                coverage.append(CGRect(x: CGFloat(entry.center.x) - radius, y: CGFloat(entry.center.y) - a,
+                                       width: 2 * radius, height: 2 * a))
+                return HexGlassSurface(id: index, polygon: machine.geometry.polygon(
+                    center: entry.center, apothem: popup.apothem - machine.geometry.stroke / 2
+                ), stroke: machine.geometry.stroke, label: label)
             }
+            let renderer = popupRenderers[id]!
+            renderer.frame = bounds
+            renderer.update(surfaces: surfaces, size: bounds.size)
+            renderer.setFeedback(pressed: Set(popup.entries.indices.filter { popup.entries[$0].choice == selected }))
         }
+        // Obscure only glyphs covered by the floating punctuation surfaces.
+        guard !coverage.isEmpty else { return [] }
+        return Set(machine.geometry.keys.compactMap { key in
+            let center = machine.geometry.center(of: key)
+            let size = labels[key.slot].sizeThatFits(CGSize(width: machine.geometry.radius * 2,
+                                                          height: machine.geometry.apothem * 2))
+            let glyph = CGRect(x: CGFloat(center.x) - size.width / 2, y: CGFloat(center.y) - size.height / 2,
+                               width: size.width, height: size.height)
+            return coverage.contains { $0.intersects(glyph) } ? key.slot : nil
+        })
     }
 
     private func customActions(for key: HexKey) -> [UIAccessibilityCustomAction] {
@@ -330,6 +288,7 @@ final class HexKeyboardView: UIView {
             let button = pickerButton(order.title + (order == machine.order ? " ✓" : ""))
             button.accessibilityIdentifier = "preset-\(order.rawValue)"
             button.accessibilityLabel = order.title
+            button.isSelected = order == machine.order
             button.accessibilityTraits = order == machine.order ? [.button, .selected] : .button
             button.addAction(UIAction { [weak self] _ in
                 guard let self else { return }
@@ -340,7 +299,7 @@ final class HexKeyboardView: UIView {
             choices.addArrangedSubview(button)
         }
         panel.addArrangedSubview(choices)
-        let close = pickerButton("Done")
+        let close = pickerButton("Done", prominent: true)
         close.accessibilityIdentifier = "preset-done"
         close.heightAnchor.constraint(equalToConstant: 44).isActive = true
         close.addAction(UIAction { [weak self] _ in self?.hidePicker() }, for: .touchUpInside)
@@ -348,7 +307,6 @@ final class HexKeyboardView: UIView {
         pickerChoices = choices
         pickerPanel = panel
         addSubview(panel)
-        shapes.forEach { $0.isHidden = true }
         glassRenderer.isHidden = true
         labels.forEach { $0.isHidden = true }
         accessibilityElements = [panel]
@@ -356,12 +314,11 @@ final class HexKeyboardView: UIView {
         UIAccessibility.post(notification: .layoutChanged, argument: title)
     }
 
-    private func pickerButton(_ title: String) -> UIButton {
+    private func pickerButton(_ title: String, prominent: Bool = false) -> UIButton {
         let button = UIButton(type: .system)
+        button.configuration = prominent ? .prominentGlass() : .glass()
         button.setTitle(title, for: .normal)
         button.titleLabel?.font = .preferredFont(forTextStyle: .body)
-        button.backgroundColor = Glass.keyFill
-        button.layer.cornerRadius = 10
         return button
     }
 
@@ -377,7 +334,6 @@ final class HexKeyboardView: UIView {
         pickerPanel?.removeFromSuperview()
         pickerPanel = nil
         pickerChoices = nil
-        for (index, shape) in shapes.enumerated() { shape.isHidden = glassSlots.contains(index) }
         glassRenderer.isHidden = false
         labels.forEach { $0.isHidden = false }
         accessibilityElements = keyElements

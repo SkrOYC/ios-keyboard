@@ -33,13 +33,19 @@ final class KeyboardSmokeTests: XCTestCase {
         dismissSystemKeyboardIntroduction(in: app)
         selectKeyboardExtension(in: app)
         XCTAssertTrue(key("q", in: app).waitForExistence(timeout: 10), app.debugDescription)
-        let firstKey = key("h", in: app)
-        let inputReady = expectation(for: NSPredicate { _, _ in firstKey.isHittable }, evaluatedWith: firstKey)
-        wait(for: [inputReady], timeout: 15)
         let before = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         before.name = "Keyboard before gestures"
         before.lifetime = .keepAlways
         add(before)
+        let firstKey = key("h", in: app)
+        let geometryReady = expectation(for: NSPredicate { _, _ in
+            let frame = firstKey.frame
+            return frame.minX.isFinite && frame.minY.isFinite && frame.width.isFinite && frame.height.isFinite
+                && frame.width > 0 && frame.height > 0 && app.frame.contains(frame)
+        }, evaluatedWith: firstKey)
+        wait(for: [geometryReady], timeout: 30)
+        let inputReady = expectation(for: NSPredicate { _, _ in firstKey.isHittable }, evaluatedWith: firstKey)
+        wait(for: [inputReady], timeout: 15)
         swipe(key("h", in: app), dx: 0, dy: -1)
         let after = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         after.name = "Keyboard after capitalize gesture"
