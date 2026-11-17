@@ -1,6 +1,6 @@
 # Hex keyboard implementation report
 
-All milestones are implemented and have green CI evidence. The QWERTY interface is replaced by the specified 7×4 hex keyboard, including the preset picker stretch goal. Version 0.3.0, build 3 passes phone Debug/light and tablet Release/dark tests, screenshot export, device archive, and unsigned IPA validation. The [final implementation run](https://github.com/SkrOYC/ios-keyboard/actions/runs/43966486861) covers the current application code. No CI blocker remains.
+All milestones and the native Liquid Glass refresh are implemented and have green CI evidence. The QWERTY interface is replaced by the specified 7×4 hex keyboard, including the preset picker stretch goal. Version 0.3.0, build 3 passes iPhone light, dark, and Increase Contrast probes, tablet Release tests, screenshot export, device archive, and unsigned IPA validation. The [verified material-refresh run](https://github.com/SkrOYC/ios-keyboard/actions/runs/44016204422) covers the application and test code. No CI blocker remains.
 
 ## Milestone evidence
 
@@ -13,22 +13,31 @@ All milestones are implemented and have green CI evidence. The QWERTY interface 
 | 4 | Symbol layer, period popup, conditional globe, and key accessibility actions | [Green layer milestone](https://github.com/SkrOYC/ios-keyboard/actions/runs/43853915882); comma selection and cancellation, 17 Core tests, and 2 UIKit tests. Final popup frames were reviewed in both orientations and appearances. |
 | 5 | Familiar, Thumb-split, Keep e·a, extension-owned defaults, invalid-value fallback, and in-keyboard picker | [Green preset milestone](https://github.com/SkrOYC/ios-keyboard/actions/runs/43857290266/attempts/2); all preset selections, 20 unit tests, lifecycle probe, archive, and IPA verification. Both picker orientations were reviewed in final evidence. |
 | 6 | Safe-area sizing, centred tablet width cap, landscape glyph sizing, host gesture legend, gap/repeat checks, compact picker cancellation, dark popup contrast, documentation, and 0.3.0/build 3 | [Green final implementation](https://github.com/SkrOYC/ios-keyboard/actions/runs/43966486861); both simulator jobs, all 23 unit tests per configuration, complete UI probes, native frame export, archive, and IPA verification. |
+| Material refresh | Native glass on all 28 keys, punctuation choices, and preset controls; cached shape geometry, per-contact press feedback, Reduce Motion handling, popup glyph suppression, and separate iPhone appearance probes | [Green material refresh](https://github.com/SkrOYC/ios-keyboard/actions/runs/44016204422); four required jobs, 25 tests per probe, inspected portrait and landscape images, native frame export, archive, and IPA verification; duration 23 minutes 8 seconds. |
 
 ## Validation
 
-Each simulator passed 21 Foundation Core tests, 2 UIKit accessibility tests, and the full Settings-to-typing UI probe. The probe requires swipe up on h, tap i, swipe right, tap q, swipe left, and swipe down to produce exactly `Hi \n`. It then verifies a dead-gap tap, symbol digits, punctuation selection and cancellation, all presets, portrait and landscape input, picker dismissal without text or order changes, and repeated deletion. Unit tests cover overlapping contacts, a popup alongside another contact, all popup choices, conditional globe actions, hold cancellation, defaults persistence, and responsive layout.
+Each of the four probes passed 21 Foundation Core tests, 3 UIKit tests, and the full Settings-to-typing UI probe. The probe requires swipe up on h, tap i, swipe right, tap q, swipe left, and swipe down to produce exactly `Hi \n`. It then verifies a dead-gap tap, symbol digits, punctuation selection and cancellation, all presets, portrait and landscape input, picker dismissal without text or order changes, and repeated deletion. Unit tests cover overlapping contacts, a popup alongside another contact, all popup choices, conditional globe actions, hold cancellation, defaults persistence, and responsive layout. The UIKit suite also checks that decorative material leaves touches with the keyboard at every key centre and a gap after resizing.
+
+The iPhone probes use Debug in light, dark, and light with Increase Contrast. The tablet probe uses Release in dark appearance. Each required job has a separate simulator and a 45-minute limit. Appearance and contrast settings are applied and read back before interaction.
 
 The independent geometry fixture compares every key centre and polygon against Core. Its generator checks canvas bounds, equal apothems, mirror symmetry, and neighbour distances before horizontal stretching. The Linux check also compares Swift presets, symbols, popup characters, swipe distance, hold delay, and repeat distance with the prototype. All nine Python tests, workflow checks, shell checks, configuration checks, and fixture checks pass.
 
 The unsigned IPA passes arm64, host/extension structure, matching version, iOS minimum, signing-state, extension-safety, and prohibited-content checks. The downloaded 0.3.0/build 3 package also passes `ipa-check`; its checksum matches the artifact checksum. Existing configuration and IPA assertions remain intact and have been extended. `devenv.lock` is unchanged. No tag or release was created.
 
-## Inspected screenshots and Liquid Glass
+## Native Liquid Glass and inspected screenshots
 
-The final implementation evidence contains full-screen phone portrait and landscape screenshots, symbols, both picker orientations, and active punctuation popups. The tablet probe provides the same states in dark appearance, including the fifth globe entry. Both orientations of the corrected dark popup were inspected: the opaque adaptive backing prevents underlying letters from showing through its labels. The phone popup remains visually consistent in light appearance.
+All 28 keys and punctuation choices use iOS 26 native Liquid Glass. `HexGlassRendererView` supplies each rounded hex footprint to SwiftUI's [`glassEffect(_:in:)`](https://developer.apple.com/documentation/swiftui/view/glasseffect(_:in:)). The footprint combines the Core polygon and its round stroke. A shared [`GlassEffectContainer`](https://developer.apple.com/documentation/swiftui/glasseffectcontainer) renders each grid or popup with zero merge spacing, preserving the gaps between keys.
 
-Original CI artifacts are cached under ignored `build/simulator-cache/popup-contrast`. Named review copies are kept under `build/simulator-cache/review`; earlier evidence remains available for comparison. All saved keyboard images come from CI simulators. Video-derived landscape frames retain the recording's orientation; full-screen XCTest attachments provide upright landscape views. No external reference screenshots or generated replacement images are included.
+UIKit retains independent touches, hold timers, accessibility elements, and one label per key. The hosted material cannot intercept input. Geometry and surface definitions are cached; feedback updates when pressed keys or covered glyphs change. Pressing a key adds a blue tint and 2.5 percent compression. The custom animation is disabled under Reduce Motion. Preset controls and Done use native [`UIButton.Configuration.glass()`](https://developer.apple.com/documentation/uikit/uibutton/configuration-swift.struct/glass()). Selection applies immediately; Done dismisses without changing text or the selected order.
 
-Clear view backgrounds and the original adaptive Glass key fills preserve the system keyboard backdrop. Individual hexes and preset buttons draw custom fills. Native `UIGlassEffect` refraction and interaction are not implemented on those controls.
+The punctuation popup mounts its content before the glass appears. Covered base glyphs are hidden while choices are visible, preserving label clarity without an opaque custom backing. A neutral punctuation diagnostic identifies popup creation without recording typed content.
+
+Full-screen iPhone portrait and landscape grids, symbols, pickers, and active punctuation popups were inspected in light, dark, and Increase Contrast evidence. The dark keys retain thin edges, translucent faces, bright glyphs, and blue press feedback. Light keys appear frosted; Increase Contrast provides more opaque faces. Popup choices are visible in both orientations without competing base letters, and neutral Done has a legible title. The tablet's dark grid, picker, and five-entry popup were also reviewed in both orientations. The material refresh prioritizes iPhone; a dedicated tablet layout remains deferred.
+
+Original CI artifacts are cached under ignored `build/simulator-cache/glass-complete`. Named review copies and source mappings are under `build/simulator-cache/review/glass-complete`; earlier evidence remains available for comparison. All saved keyboard images come from CI simulators. Video-derived landscape frames retain the recording's orientation; full-screen XCTest attachments provide upright landscape views. No external reference screenshots or generated replacement images are included.
+
+Across reviewed full-grid native captures, debug-strip readings ranged roughly from 55 to 68 MB; earlier flat-fill captures showed about 46 to 48 MB. These samples span different probes and are not a controlled benchmark. They do not establish device peak memory, memory-pressure behavior, frame pacing, or typing latency. Physical-device profiling remains open.
 
 ## Resolved failures
 
@@ -40,16 +49,21 @@ The [first recovery run](https://github.com/SkrOYC/ios-keyboard/actions/runs/439
 
 Earlier resolved issues included the system keyboard introduction covering switching, accessibility elements missing their explicit enabled flag, premature text assertions across processes, cropped app-only landscape screenshots, and stale debug-label instances. Strict text, image, archive, and IPA gates remain enabled.
 
+The first native glass prototype compiled after a private property was renamed to avoid an inherited `UIView` property. Its [green functional run](https://github.com/SkrOYC/ios-keyboard/actions/runs/43980462754) did not establish visual correctness: inspected screenshots showed rectangular material beyond the masked hex. Explicit SwiftUI glass shapes replaced that approach. Keeping popup content mounted during material appearance and directly hiding covered UIKit labels resolved missing choices and competing glyphs in reviewed images. A prominent Done button had poor title contrast, so dismissal uses neutral native glass.
+
+The material-refresh probes exposed separate setup defects. The fixture waits for finite geometry before querying hittability and targets the actual Add New Keyboard button. It distinguishes the external Emoji switcher by its Keyboard value, accepts Next keyboard, and checks the visible centre rather than requiring the entire frame inside the screen. It waits for either visible extension keys or a ready switcher during asynchronous activation. It also preserves restored field focus and dismisses an observed AutoFill menu before the first gesture. The [green material-refresh run](https://github.com/SkrOYC/ios-keyboard/actions/runs/44016204422) passes all four probes with these corrections. No failed typing assertion is retried or skipped.
+
 ## Device checks and open questions
 
 No physical-device typing or installation is verified. The remaining checks are:
 
 - Swipe thresholds and the 420-millisecond hold under natural typing speed.
 - Two-thumb overlap, palm contact, and simultaneous UIKit touch delivery; the independent state machine is unit tested.
-- Landscape reach, flattened key shape, popup target size, and the 700-point tablet width cap.
+- iPhone landscape reach, flattened key shape, popup target size, and the 700-point tablet width cap; a dedicated tablet layout remains open.
 - VoiceOver navigation and custom-action usability, including keyboard handoff through the globe.
 - Preset persistence across extension termination on a device.
-- Reduce Transparency, Increase Contrast, Reduce Motion, and larger accessibility text settings.
+- Reduce Transparency, Reduce Motion, and larger accessibility text settings; Increase Contrast has simulator coverage and still needs device assessment.
+- Native-material peak memory, pressure handling, rendering cost, and typing latency during sustained input and overlapping contacts.
 - Signing, provisioning, and installation of the unsigned package.
 
 There are no remaining implementation blockers. These checks concern device behavior and accessibility preferences beyond the simulator evidence. Dedicated shift, space, return, and delete keys, correction, prediction, emoji input, and haptics remain outside scope.
@@ -77,7 +91,7 @@ The complete register is also maintained in [Decisions](DECISIONS.md).
 - D17: Use a 180-point compact key area and a 320-point height cap because the host needs editing space.
 - D18: Cap tablet key width at 700 points and centre it because full-width tablet keys become difficult to reach.
 - D19: Use the available phone width because landscape typing needs horizontal space.
-- D20: Preserve transparent backgrounds and the original Glass fills because the system supplies the Liquid Glass platter.
+- D20 (superseded by D65): Preserve transparent backgrounds and the original Glass fills because the system supplies the Liquid Glass platter.
 - D21: Use the system typeface and bound glyph size by key height because flattened landscape hexes need legible labels.
 - D22: Use neutral preset names and the three specified orders because selectable layouts must remain covered by spec parity checks.
 - D23: Store only the raw preset key in the extension defaults because an App Group is prohibited.
@@ -102,7 +116,7 @@ The complete register is also maintained in [Decisions](DECISIONS.md).
 - D42: Capture the full screen because app-only landscape screenshots were cropped.
 - D43: Export transient frames from simulator video because build-log and live still-capture timing missed active holds.
 - D44: Use Xcode AVFoundation APIs for frame export because they require no extra package or lock change.
-- D45: Probe phone Debug in light appearance and tablet Release in dark appearance because both configurations and Glass fill variants need evidence.
+- D45 (extended by D81): Probe phone Debug in light appearance and tablet Release in dark appearance because both configurations and Glass fill variants need evidence.
 - D46: Remove detailed touch traces because the shipped keyboard needs only bounded action and memory diagnostics.
 - D47: Cache original evidence and named review copies under ignored build/simulator-cache because screenshots must remain easy to inspect without entering Git.
 - D48: Preserve the prototype script and remove personal attribution from its prose because spec parity and anonymous public text are both required.
@@ -119,6 +133,30 @@ The complete register is also maintained in [Decisions](DECISIONS.md).
 - D59: Cycle the system globe with fixed coordinates because native iPad accessibility hit points can be invalid.
 - D60: Collect extension launch logs and crash reports on UI failure because a native keyboard preview cannot identify the cause.
 - D61: Check Done in the landscape picker because dismissing preferences must preserve text and letter order.
-- D62: Back popup hexes with an opaque adaptive color because underlying letters showed through the dark translucent fills.
+- D62 (superseded by D77): Back popup hexes with an opaque adaptive color because underlying letters showed through the dark translucent fills.
 - D63: Treat reverse-engineering notes as background because the bundled HTML defines this keyboard's geometry and gestures.
 - D64: Give each probe a distinct evidence artifact because parallel uploads require unique artifact names.
+- D65: Replace flat key fills with native Liquid Glass because all 28 keys need the chosen material treatment.
+- D66: Prioritize iPhone portrait and landscape because a dedicated iPad layout is outside this refresh.
+- D67: Reject masked UIKit glass surfaces because simulator images showed rectangular material outside the hexes.
+- D68: Use SwiftUI glassEffect with an explicit Shape because the material must follow the rounded hex silhouette.
+- D69: Retain UIKit touch handling, key elements, and UILabel identities because visual materials must preserve input and accessibility behavior.
+- D70: Union each filled polygon with its round stroke because the native material footprint must match Core hit-testing.
+- D71: Share one hosting configuration and glass container per grid or popup because independent hosts add unnecessary rendering overhead.
+- D72: Use zero glass-container merge spacing because adjacent keys must retain their visible gaps.
+- D73: Cache material geometry and surface definitions because typing feedback must avoid rebuilding paths on every movement.
+- D74: Use regular glass because letter and punctuation legibility requires adaptive background protection.
+- D75: Compress pressed faces by 2.5 percent with short feedback because each contact needs an immediate visual cue without delaying input.
+- D76: Disable custom motion under Reduce Motion because the keyboard must respect the system preference.
+- D77: Suppress covered base glyphs while punctuation is open because overlapping letters compete with popup labels.
+- D78: Mount popup content before applying glass because the first hold needs visible choices even during material appearance.
+- D79: Use native glass button configurations for presets because standard controls provide platform appearance and interaction.
+- D80: Use neutral glass for Done because it dismisses without applying changes and the prominent title had poor visual contrast.
+- D81: Require separate light, dark, and contrast iPhone probes because each appearance needs direct functional and screenshot evidence.
+- D82: Wait for finite on-screen geometry before hittability because remote accessibility bridges can expose invalid startup frames.
+- D83: Target the actual Add New Keyboard button because its enclosing cell centre can miss the action.
+- D84: Distinguish the observed system-switcher labels and Keyboard value because the Emoji shortcut is separate and switcher bounds can extend past the screen edge.
+- D85: Preserve restored field focus and dismiss AutoFill menus because an editing overlay can consume the first gesture.
+- D86: Wait for visible keys during asynchronous activation because a keyboard service can become ready after its OS switcher disappears.
+- D87: Log popup creation with a neutral action name because visual evidence must distinguish model opening from material rendering.
+- D88: Report simulator memory observations separately from device performance because screenshots do not establish peak footprint or typing latency.

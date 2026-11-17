@@ -1,6 +1,6 @@
 # Hex keyboard decisions
 
-These decisions define the implementation and its verification. All milestones have green CI evidence; see [Implementation report](IMPLEMENTATION_REPORT.md) for run links and device validation boundaries.
+These decisions define the implementation and its verification, including the native Liquid Glass refresh. All milestones have green CI evidence; see [Implementation report](IMPLEMENTATION_REPORT.md) for run links and device validation boundaries. Superseded entries retain their original reasons.
 
 - D01: Use filled hexagons and their round strokes for hit-testing because visible gaps must insert nothing.
 - D02: Track every touch independently because two thumbs need separate gesture state, popup state, and hold timers.
@@ -21,7 +21,7 @@ These decisions define the implementation and its verification. All milestones h
 - D17: Use a 180-point compact key area and a 320-point height cap because the host needs editing space.
 - D18: Cap tablet key width at 700 points and centre it because full-width tablet keys become difficult to reach.
 - D19: Use the available phone width because landscape typing needs horizontal space.
-- D20: Preserve transparent backgrounds and the original Glass fills because the system supplies the Liquid Glass platter.
+- D20 (superseded by D65): Preserve transparent backgrounds and the original Glass fills because the system supplies the Liquid Glass platter.
 - D21: Use the system typeface and bound glyph size by key height because flattened landscape hexes need legible labels.
 - D22: Use neutral preset names and the three specified orders because selectable layouts must remain covered by spec parity checks.
 - D23: Store only the raw preset key in the extension defaults because an App Group is prohibited.
@@ -46,7 +46,7 @@ These decisions define the implementation and its verification. All milestones h
 - D42: Capture the full screen because app-only landscape screenshots were cropped.
 - D43: Export transient frames from simulator video because build-log and live still-capture timing missed active holds.
 - D44: Use Xcode AVFoundation APIs for frame export because they require no extra package or lock change.
-- D45: Probe phone Debug in light appearance and tablet Release in dark appearance because both configurations and Glass fill variants need evidence.
+- D45 (extended by D81): Probe phone Debug in light appearance and tablet Release in dark appearance because both configurations and Glass fill variants need evidence.
 - D46: Remove detailed touch traces because the shipped keyboard needs only bounded action and memory diagnostics.
 - D47: Cache original evidence and named review copies under ignored build/simulator-cache because screenshots must remain easy to inspect without entering Git.
 - D48: Preserve the prototype script and remove personal attribution from its prose because spec parity and anonymous public text are both required.
@@ -63,6 +63,30 @@ These decisions define the implementation and its verification. All milestones h
 - D59: Cycle the system globe with fixed coordinates because native iPad accessibility hit points can be invalid.
 - D60: Collect extension launch logs and crash reports on UI failure because a native keyboard preview cannot identify the cause.
 - D61: Check Done in the landscape picker because dismissing preferences must preserve text and letter order.
-- D62: Back popup hexes with an opaque adaptive color because underlying letters showed through the dark translucent fills.
+- D62 (superseded by D77): Back popup hexes with an opaque adaptive color because underlying letters showed through the dark translucent fills.
 - D63: Treat reverse-engineering notes as background because the bundled HTML defines this keyboard's geometry and gestures.
 - D64: Give each probe a distinct evidence artifact because parallel uploads require unique artifact names.
+- D65: Replace flat key fills with native Liquid Glass because all 28 keys need the chosen material treatment.
+- D66: Prioritize iPhone portrait and landscape because a dedicated iPad layout is outside this refresh.
+- D67: Reject masked UIKit glass surfaces because simulator images showed rectangular material outside the hexes.
+- D68: Use SwiftUI glassEffect with an explicit Shape because the material must follow the rounded hex silhouette.
+- D69: Retain UIKit touch handling, key elements, and UILabel identities because visual materials must preserve input and accessibility behavior.
+- D70: Union each filled polygon with its round stroke because the native material footprint must match Core hit-testing.
+- D71: Share one hosting configuration and glass container per grid or popup because independent hosts add unnecessary rendering overhead.
+- D72: Use zero glass-container merge spacing because adjacent keys must retain their visible gaps.
+- D73: Cache material geometry and surface definitions because typing feedback must avoid rebuilding paths on every movement.
+- D74: Use regular glass because letter and punctuation legibility requires adaptive background protection.
+- D75: Compress pressed faces by 2.5 percent with short feedback because each contact needs an immediate visual cue without delaying input.
+- D76: Disable custom motion under Reduce Motion because the keyboard must respect the system preference.
+- D77: Suppress covered base glyphs while punctuation is open because overlapping letters compete with popup labels.
+- D78: Mount popup content before applying glass because the first hold needs visible choices even during material appearance.
+- D79: Use native glass button configurations for presets because standard controls provide platform appearance and interaction.
+- D80: Use neutral glass for Done because it dismisses without applying changes and the prominent title had poor visual contrast.
+- D81: Require separate light, dark, and contrast iPhone probes because each appearance needs direct functional and screenshot evidence.
+- D82: Wait for finite on-screen geometry before hittability because remote accessibility bridges can expose invalid startup frames.
+- D83: Target the actual Add New Keyboard button because its enclosing cell centre can miss the action.
+- D84: Distinguish the observed system-switcher labels and Keyboard value because the Emoji shortcut is separate and switcher bounds can extend past the screen edge.
+- D85: Preserve restored field focus and dismiss AutoFill menus because an editing overlay can consume the first gesture.
+- D86: Wait for visible keys during asynchronous activation because a keyboard service can become ready after its OS switcher disappears.
+- D87: Log popup creation with a neutral action name because visual evidence must distinguish model opening from material rendering.
+- D88: Report simulator memory observations separately from device performance because screenshots do not establish peak footprint or typing latency.
