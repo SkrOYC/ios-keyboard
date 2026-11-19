@@ -74,8 +74,18 @@ def main():
     renderer = spec["targets"]["KeyboardViewTests"]
     assert renderer["type"] == "bundle.unit-test"
     assert {source["path"] for source in renderer["sources"]} == {
-        "Keyboard/Core", "Keyboard/HexKeyboardView.swift", "Keyboard/HexGlassRendererView.swift", "KeyboardViewTests"
+        "Keyboard/Core", "Keyboard/HexKeyboardView.swift", "Keyboard/HexGlassRendererView.swift",
+        "Keyboard/PopupPlateView.swift", "Keyboard/DebugLog.swift", "KeyboardViewTests"
     }
+    conditions = spec["targets"]["Keyboard"]["settings"]["configs"]
+    assert conditions == {
+        "Debug": {"SWIFT_ACTIVE_COMPILATION_CONDITIONS": "$(inherited) DEBUG DEVTOOLS"},
+        "Release": {"SWIFT_ACTIVE_COMPILATION_CONDITIONS": "$(inherited) DEVTOOLS"},
+    }, "Debug and the Release sideload archive must include tuning controls"
+    assert "DEVTOOLS" not in settings.get("SWIFT_ACTIVE_COMPILATION_CONDITIONS", "")
+    assert renderer["settings"]["configs"] == conditions
+    assert Path("Keyboard/DebugLog.swift").read_text().splitlines()[2] == "#if DEVTOOLS"
+    assert "DebugLog.enabled" not in Path("Keyboard/KeyboardViewController.swift").read_text()
     assert "KeyboardViewTests" in spec["targets"]["KeyboardHost"]["scheme"]["testTargets"]
     for source in Path("Keyboard/Core").glob("*.swift"):
         assert "import UIKit" not in source.read_text(), "Core must remain independent of UIKit"

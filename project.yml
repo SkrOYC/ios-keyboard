@@ -64,6 +64,11 @@ targets:
         INFOPLIST_FILE: Keyboard/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         APPLICATION_EXTENSION_API_ONLY: YES
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG DEVTOOLS"
+        Release:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEVTOOLS"
 
   KeyboardSmokeTests:
     type: bundle.ui-testing
@@ -97,8 +102,15 @@ targets:
       - path: Keyboard/Core
       - path: Keyboard/HexKeyboardView.swift
       - path: Keyboard/HexGlassRendererView.swift
+      - path: Keyboard/PopupPlateView.swift
+      - path: Keyboard/DebugLog.swift
       - path: KeyboardViewTests
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(BASE_BUNDLE_ID).ViewTests
         GENERATE_INFOPLIST_FILE: YES
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG DEVTOOLS"
+        Release:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEVTOOLS"

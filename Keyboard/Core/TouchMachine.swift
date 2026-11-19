@@ -125,4 +125,5 @@ struct TouchMachine {
     mutating func cancel(_ id: Int) { contacts.removeValue(forKey: id) }
     mutating func cancelAll() { contacts.removeAll() }
     mutating func resetCapsLock() { capsLock = false }
+    mutating func toggleCapsLock() { capsLock.toggle() }
 }

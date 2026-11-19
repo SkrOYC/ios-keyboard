@@ -3,8 +3,13 @@ import UIKit
 final class KeyboardViewController: UIInputViewController {
     private let keyboard = HexKeyboardView()
     private var heightConstraint: NSLayoutConstraint!
-    private var debugLabel: UILabel?
-    private var stripHeight: CGFloat { DebugLog.enabled ? 22 : 0 }
+    private var tuning = KeyboardTuning()
+    #if DEVTOOLS
+    private var tuningStrip: TuningStripView?
+    private let stripHeight: CGFloat = 60
+    #else
+    private let stripHeight: CGFloat = 0
+    #endif
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -15,12 +20,23 @@ final class KeyboardViewController: UIInputViewController {
         heightConstraint.priority = UILayoutPriority(999)
         heightConstraint.isActive = true
         view.addSubview(keyboard)
-        debugLabel = DebugLog.makeLabel()
-        debugLabel?.isAccessibilityElement = false
-        if let debugLabel { view.addSubview(debugLabel) }
-        keyboard.onAction = { [weak self] action in self?.perform(action) }
+        let store = TuningStore(tablet: traitCollection.userInterfaceIdiom == .pad)
+        tuning = store.tuning
+        #if DEVTOOLS
+        let strip = TuningStripView(store: store)
+        strip.onChange = { [weak self] tuning in
+            guard let self else { return }
+            self.keyboard.cancelTouches()
+            self.tuning = tuning
+            self.view.setNeedsLayout()
+            self.view.layoutIfNeeded()
+        }
+        tuningStrip = strip
+        view.addSubview(strip)
         keyboard.onDiagnostic = { DebugLog.log($0) }
-        DebugLog.log("ready · hex 7×4")
+        #endif
+        keyboard.onAction = { [weak self] action in self?.perform(action) }
+        diagnose("ready · hex 7×4")
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -39,7 +55,8 @@ final class KeyboardViewController: UIInputViewController {
             trailingInset: Double(view.safeAreaInsets.right),
             shorterSide: Double(min((view.window?.screen.bounds ?? view.bounds).width,
                                     (view.window?.screen.bounds ?? view.bounds).height)),
-            tablet: traitCollection.userInterfaceIdiom == .pad
+            tablet: traitCollection.userInterfaceIdiom == .pad,
+            tuning: tuning
         )
         let height = CGFloat(layout.height) + stripHeight
         if heightConstraint.constant != height {
@@ -47,12 +64,18 @@ final class KeyboardViewController: UIInputViewController {
             preferredContentSize.height = height
         }
         keyboard.frame = CGRect(x: layout.originX, y: Double(stripHeight), width: layout.width, height: layout.height)
-        debugLabel?.frame = CGRect(x: 12, y: 4, width: view.bounds.width - 24, height: 14)
+        keyboard.configure(layout: layout, tuning: tuning)
+        #if DEVTOOLS
+        tuningStrip?.frame = CGRect(x: view.safeAreaInsets.left + 8, y: 0,
+                                   width: view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right - 16,
+                                   height: stripHeight)
+        #endif
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         keyboard.cancelTouches()
+        keyboard.resetCapsLock()
     }
 
     private func perform(_ action: KeyboardAction) {
@@ -60,25 +83,31 @@ final class KeyboardViewController: UIInputViewController {
         case .insert(let value):
             textDocumentProxy.insertText(value)
             switch value {
-            case " ": DebugLog.log("space")
-            case "\n": DebugLog.log("return")
-            default: DebugLog.log("insert")
+            case " ": diagnose("space")
+            case "\n": diagnose("return")
+            default: diagnose("insert")
             }
         case .delete:
             textDocumentProxy.deleteBackward()
-            DebugLog.log("delete")
+            diagnose("delete")
         case .nextKeyboard:
-            DebugLog.log("next keyboard")
+            diagnose("next keyboard")
             keyboard.cancelTouches()
             advanceToNextInputMode()
         case .showPicker:
-            DebugLog.log("letter order")
+            diagnose("letter order")
             keyboard.showPicker()
         case .moveCursor(let graphemes):
             textDocumentProxy.adjustTextPosition(byCharacterOffset: cursorUTF16Offset(
                 graphemes: graphemes, before: textDocumentProxy.documentContextBeforeInput,
                 after: textDocumentProxy.documentContextAfterInput))
-            DebugLog.log("cursor")
+            diagnose("cursor")
         }
+    }
+
+    private func diagnose(_ message: String) {
+        #if DEVTOOLS
+        DebugLog.log(message)
+        #endif
     }
 }

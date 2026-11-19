@@ -7,7 +7,6 @@ final class HexKeyboardView: UIView {
     private var machine = TouchMachine(geometry: HexGeometry())
     private var labels: [UILabel] = []
     private let glassRenderer = HexGlassRendererView()
-    private let glassSlots = Set(0..<28)
     private var keyElements: [KeyAccessibilityElement] = []
     private var touchIDs: [ObjectIdentifier: Int] = [:]
     private let presetStore = PresetStore()
@@ -15,8 +14,28 @@ final class HexKeyboardView: UIView {
     private var pickerChoices: UIStackView?
     private var nextID = 0
     private var holdTimers: [Int: Timer] = [:]
-    private var popupRenderers: [Int: HexGlassRendererView] = [:]
-    private var popupLabels: [Int: [UILabel]] = [:]
+    private var popupRenderers: [Int: PopupPlateView] = [:]
+    private var configuredLayout: HexLayout?
+
+    var geometry: HexGeometry { machine.geometry }
+
+    func configure(layout: HexLayout, tuning: KeyboardTuning) {
+        let next = layout.geometry
+        let changed = next.width != machine.geometry.width || next.height != machine.geometry.height
+            || next.placedKeys.map(\.center) != machine.geometry.placedKeys.map(\.center)
+            || TuningParameter.allCases.contains { tuning[$0] != machine.tuning[$0] }
+        configuredLayout = layout
+        if changed { cancelTouches() }
+        machine.geometry = next
+        machine.tuning = tuning
+        glassRenderer.highlightExposure = tuning.highlightExposure
+        setNeedsLayout()
+    }
+
+    func resetCapsLock() {
+        machine.resetCapsLock()
+        refresh()
+    }
 
     var needsGlobe: Bool {
         get { machine.needsGlobe }
@@ -35,7 +54,7 @@ final class HexKeyboardView: UIView {
         isAccessibilityElement = false
         machine.order = presetStore.order
         addSubview(glassRenderer)
-        for key in machine.geometry.keys {
+        for index in 0..<32 {
             let label = UILabel()
             label.backgroundColor = .clear
             label.isOpaque = false
@@ -44,6 +63,8 @@ final class HexKeyboardView: UIView {
             label.isUserInteractionEnabled = false
             label.isAccessibilityElement = false
             labels.append(label)
+            guard index < 28 else { continue }
+            let key = HexKey(slot: index)
             let element = KeyAccessibilityElement(accessibilityContainer: self)
             element.isAccessibilityElement = true
             element.accessibilityTraits = .keyboardKey
@@ -61,7 +82,7 @@ final class HexKeyboardView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         guard bounds.width > 0, bounds.height > 0 else { return }
-        if machine.geometry.width != Double(bounds.width) || machine.geometry.height != Double(bounds.height) {
+        if configuredLayout == nil && (machine.geometry.width != Double(bounds.width) || machine.geometry.height != Double(bounds.height)) {
             cancelTouches()
             machine.geometry = HexGeometry(width: Double(bounds.width), height: Double(bounds.height))
         }
@@ -77,28 +98,34 @@ final class HexKeyboardView: UIView {
             keyElements[key.slot].accessibilityFrameInContainerSpace = rect
         }
         glassRenderer.frame = bounds
-        glassRenderer.update(geometry: g, slots: glassSlots, labels: labels)
+        glassRenderer.update(geometry: g, labels: labels)
         refresh()
         layoutPicker()
         CATransaction.commit()
     }
 
     private func refresh() {
-        let pressed = Set(machine.contacts.values.compactMap { $0.direction == nil ? $0.startKey?.slot : nil })
+        let pressedSlots = Set(machine.contacts.values.compactMap { $0.direction == nil ? $0.startKey?.slot : nil })
+        let pressed = Set(machine.geometry.placedKeys.enumerated().compactMap {
+            pressedSlots.contains($0.element.slot) ? $0.offset : nil
+        })
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        for key in machine.geometry.keys {
-            let title = keyLabel(key, layer: machine.layer, order: machine.order)
-            labels[key.slot].text = title
+        for (index, placed) in machine.geometry.placedKeys.enumerated() {
+            let key = placed.key
+            let title = keyLabel(key, layer: machine.layer, order: machine.order, capsLock: machine.capsLock)
+            labels[index].text = machine.isTrackpadActive && key.letterIndex != nil ? "" : title
             let number = machine.layer == .symbols && "0123456789*#".contains(title)
             let units: CGFloat = key.letterIndex == nil ? 44 : number ? 64 : 58
             let verticalLimit: CGFloat = key.letterIndex == nil ? 0.85 : 1.1
             let size = min(26, units * CGFloat(machine.scale), CGFloat(machine.geometry.apothem) * verticalLimit)
-            labels[key.slot].font = .systemFont(ofSize: size, weight: number ? .semibold : .medium)
+            labels[index].font = .systemFont(ofSize: size, weight: number ? .semibold : .medium)
+            guard !placed.isDuplicate else { continue }
             let element = keyElements[key.slot]
-            element.accessibilityIdentifier = key.isLayer ? "key-123" : key.isPeriod ? "key-period" : "key-\(title)"
+            element.accessibilityIdentifier = key.isLayer ? "key-123" : key.isPeriod ? "key-period" : "key-\(title.lowercased())"
             element.accessibilityLabel = key.isLayer ? (machine.layer == .letters ? "Symbols" : "Letters") : key.isPeriod ? "Period" : title
-            element.accessibilityHint = key.isLayer ? "Hold to choose a letter order" : key.isPeriod ? (machine.needsGlobe ? "Hold for punctuation and the next keyboard" : "Hold for punctuation") : "Swipe left to delete, right for space, down for return, or up on a letter to capitalize"
+            element.accessibilityHint = key.isLayer ? "Tap to toggle letters and symbols, swipe up for caps lock and letter order, or hold to move the cursor" : key.isPeriod ? (machine.needsGlobe ? "Hold for punctuation and the next keyboard" : "Hold for punctuation") : "Swipe left to delete, right for space, down for return, or up on a letter to capitalize"
+            element.accessibilityValue = key.isLayer ? (machine.capsLock ? "Caps lock on" : "Caps lock off") : nil
             element.accessibilityCustomActions = customActions(for: key)
         }
         let obscured = refreshPopups()
@@ -108,7 +135,7 @@ final class HexKeyboardView: UIView {
 
     private func activate(_ key: HexKey) {
         if key.isLayer { machine.layer = machine.layer == .letters ? .symbols : .letters }
-        else { onAction?(.insert(keyLabel(key, layer: machine.layer, order: machine.order))) }
+        else { onAction?(.insert(keyLabel(key, layer: machine.layer, order: machine.order, capsLock: machine.capsLock))) }
         refresh()
     }
 
@@ -201,54 +228,31 @@ final class HexKeyboardView: UIView {
         let active = Set(machine.contacts.compactMap { $0.value.popup == nil ? nil : $0.key })
         for id in Array(popupRenderers.keys) where !active.contains(id) {
             popupRenderers.removeValue(forKey: id)?.removeFromSuperview()
-            popupLabels.removeValue(forKey: id)
         }
         var coverage: [CGRect] = []
         for id in active.sorted() {
             guard let contact = machine.contacts[id], let popup = contact.popup else { continue }
             let opened = popupRenderers[id] == nil
             if popupRenderers[id] == nil {
-                let renderer = HexGlassRendererView(materializes: true)
+                let renderer = PopupPlateView()
                 popupRenderers[id] = renderer
                 addSubview(renderer)
-                popupLabels[id] = popup.entries.map { _ in
-                    let label = UILabel()
-                    label.textAlignment = .center
-                    label.backgroundColor = .clear
-                    label.isOpaque = false
-                    label.isUserInteractionEnabled = false
-                    label.isAccessibilityElement = false
-                    return label
-                }
-            }
-            let selected = popup.selection(at: contact.location)
-            let surfaces = popup.entries.enumerated().map { index, entry in
-                let label = popupLabels[id]![index]
-                label.text = entry.choice.label
-                label.textColor = .label
-                let a = CGFloat(popup.cellHeight / 2)
-                let radius = CGFloat(popup.cellWidth / 2)
-                label.font = .systemFont(ofSize: min(24, a * 1.05))
-                coverage.append(CGRect(x: CGFloat(entry.center.x) - radius, y: CGFloat(entry.center.y) - a,
-                                       width: 2 * radius, height: 2 * a))
-                return HexGlassSurface(id: index, polygon: entry.rect.polygon,
-                                       stroke: machine.geometry.stroke, label: label)
             }
             let renderer = popupRenderers[id]!
             renderer.frame = bounds
-            renderer.update(surfaces: surfaces, size: bounds.size)
-            renderer.setFeedback(pressed: Set(popup.entries.indices.filter { popup.entries[$0].choice == selected }))
-            if opened { onDiagnostic?("punctuation") }
+            renderer.update(popup: popup, selected: popup.selectedIndex(at: contact.location))
+            coverage.append(renderer.plateBounds)
+            if opened { onDiagnostic?(contact.startKey?.isPeriod == true ? "punctuation" : "mode options") }
         }
         // Obscure only glyphs covered by the floating punctuation surfaces.
         guard !coverage.isEmpty else { return [] }
-        return Set(machine.geometry.keys.compactMap { key in
-            let center = machine.geometry.center(of: key)
-            let size = labels[key.slot].sizeThatFits(CGSize(width: machine.geometry.radius * 2,
+        return Set(machine.geometry.placedKeys.enumerated().compactMap { index, placed in
+            let center = placed.center
+            let size = labels[index].sizeThatFits(CGSize(width: machine.geometry.radius * 2,
                                                           height: machine.geometry.apothem * 2))
             let glyph = CGRect(x: CGFloat(center.x) - size.width / 2, y: CGFloat(center.y) - size.height / 2,
                                width: size.width, height: size.height)
-            return coverage.contains { $0.intersects(glyph) } ? key.slot : nil
+            return coverage.contains { $0.intersects(glyph) } ? index : nil
         })
     }
 
@@ -263,6 +267,12 @@ final class HexKeyboardView: UIView {
         }
         if key.isLayer {
             actions.append(accessibilityAction("Choose letter order", action: .showPicker))
+            actions.append(UIAccessibilityCustomAction(name: "Toggle caps lock") { [weak self] _ in
+                guard let self else { return false }
+                self.machine.toggleCapsLock()
+                self.refresh()
+                return true
+            })
         }
         if key.isPeriod {
             for (name, value) in [("Comma", ","), ("Question mark", "?"), ("Exclamation mark", "!"), ("Apostrophe", "'")] {

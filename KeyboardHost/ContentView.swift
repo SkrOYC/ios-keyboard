@@ -27,7 +27,7 @@ struct ContentView: View {
                     Label("Return", systemImage: "arrow.down")
                 }
                 Section("More keys") {
-                    Text("Tap 123 for numbers and symbols. Hold 123 to choose a letter order.")
+                    Text("Tap 123 for numbers and symbols. Swipe up for caps lock and letter order. Hold to move the cursor.")
                     Text("Hold the period key, slide to a punctuation mark, then release. The popup also includes a globe when keyboard switching is needed.")
                 }
                 Section("Enable the keyboard") {

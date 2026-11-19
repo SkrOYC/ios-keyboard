@@ -8,25 +8,30 @@ final class HexGlassRendererView: UIView {
     private var pressed: Set<Int> = []
     private var obscured: Set<Int> = []
     private var surfaces: [HexGlassSurface] = []
-    private let materializes: Bool
+    var highlightExposure = 1.0 {
+        didSet { if oldValue != highlightExposure { render() } }
+    }
     private var renderedSize = CGSize.zero
     private var renderedSlots: Set<Int> = []
 
-    init(materializes: Bool = false) {
-        self.materializes = materializes
+    init() {
         super.init(frame: .zero)
         backgroundColor = .clear
         isOpaque = false
         isUserInteractionEnabled = false
         isAccessibilityElement = false
+        accessibilityElementsHidden = true
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (view: HexGlassRendererView, _: UITraitCollection) in
+            view.render()
+        }
     }
 
     required init?(coder: NSCoder) { fatalError("Use init()") }
 
-    func update(geometry: HexGeometry, slots: Set<Int>, labels: [UILabel]) {
-        let surfaces = geometry.keys.filter { slots.contains($0.slot) }.map { key in
-            HexGlassSurface(id: key.slot, polygon: geometry.polygon(of: key),
-                            stroke: geometry.stroke, label: labels[key.slot])
+    func update(geometry: HexGeometry, labels: [UILabel]) {
+        let surfaces = geometry.placedKeys.enumerated().map { index, placed in
+            HexGlassSurface(id: index, polygon: placed.polygon,
+                            stroke: geometry.stroke, label: labels[index])
         }
         update(surfaces: surfaces, size: CGSize(width: geometry.width, height: geometry.height))
     }
@@ -68,8 +73,13 @@ final class HexGlassRendererView: UIView {
 
     private func render() {
         guard renderedSize.width > 0, renderedSize.height > 0 else { return }
+        let lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        layer.preferredDynamicRange = lowPower ? .constrainedHigh : .high
+        let hdr = !lowPower && (window?.screen.currentEDRHeadroom ?? 1) > 1
+            && (window?.screen.potentialEDRHeadroom ?? 1) > 1
         let canvas = HexGlassCanvas(items: items, pressed: pressed, obscured: obscured,
-                                    size: renderedSize, materializes: materializes)
+                                    size: renderedSize, accent: Color(uiColor: tintColor),
+                                    exposure: highlightExposure, hdr: hdr)
         let configuration = UIHostingConfiguration { canvas }
             .margins(.all, 0).minSize(width: 0, height: 0)
         if let content {
@@ -84,6 +94,17 @@ final class HexGlassRendererView: UIView {
             content = view
         }
         content?.frame = bounds
+        content?.layer.preferredDynamicRange = lowPower ? .constrainedHigh : .high
+    }
+
+    override func tintColorDidChange() {
+        super.tintColorDidChange()
+        render()
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        render()
     }
 }
 
@@ -107,33 +128,36 @@ private struct HexGlassItem: Identifiable {
 
 private struct HexGlassCanvas: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @Namespace private var effects
-    @State private var appeared = false
     let items: [HexGlassItem]
     let pressed: Set<Int>
     let obscured: Set<Int>
     let size: CGSize
-    let materializes: Bool
-
-    init(items: [HexGlassItem], pressed: Set<Int>, obscured: Set<Int>, size: CGSize, materializes: Bool) {
-        self.items = items
-        self.pressed = pressed
-        self.obscured = obscured
-        self.size = size
-        self.materializes = materializes
-    }
+    let accent: Color
+    let exposure: Double
+    let hdr: Bool
 
     var body: some View {
         GlassEffectContainer(spacing: 0) {
             ZStack {
                 ForEach(items) { item in
                     let down = pressed.contains(item.id)
-                    let material: Glass = appeared || !materializes
-                        ? (down ? .regular.tint(.blue.opacity(0.18)) : .regular) : .identity
+                    let shape = HexGlassFootprint(outline: item.footprint, size: item.frame.size)
                     HexGlassLabel(label: item.label)
                         .opacity(obscured.contains(item.id) ? 0 : 1)
                         .frame(width: item.frame.width, height: item.frame.height)
-                        .glassEffect(material, in: HexGlassFootprint(outline: item.footprint, size: item.frame.size))
+                        .glassEffect(.regular, in: shape)
+                        .overlay {
+                            if down {
+                                shape.fill(colorScheme == .dark ? Color.white.opacity(0.24) : Color.black.opacity(0.14))
+                                if colorScheme == .dark && hdr {
+                                    shape.fill(Color(uiColor: UIColor(red: 1, green: 1, blue: 1, alpha: 0.16,
+                                                                       linearExposure: CGFloat(pow(2, exposure)))))
+                                }
+                                shape.stroke(accent.opacity(0.8), lineWidth: 2)
+                            }
+                        }
                         .glassEffectID(item.id, in: effects)
                         .scaleEffect(down && !reduceMotion ? 0.975 : 1)
                         .position(x: item.frame.midX, y: item.frame.midY)
@@ -145,10 +169,6 @@ private struct HexGlassCanvas: View {
         .environment(\.layoutDirection, .leftToRight)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .onAppear {
-            guard materializes else { return }
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) { appeared = true }
-        }
     }
 }
 
