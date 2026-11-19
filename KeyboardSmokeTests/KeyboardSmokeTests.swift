@@ -522,10 +522,10 @@ final class KeyboardSmokeTests: XCTestCase {
     }
 
     private func waitForOnScreen(_ element: XCUIElement, in app: XCUIApplication) {
-        let ready = expectation(for: NSPredicate { _, _ in
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             self.isOnScreen(element, in: app)
-        }, evaluatedWith: element)
-        wait(for: [ready], timeout: 30)
+        }, object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 30), .completed, app.debugDescription)
     }
 
     private func tapSetting(_ element: XCUIElement, in app: XCUIApplication) {
