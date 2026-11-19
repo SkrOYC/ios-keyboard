@@ -18,7 +18,7 @@ unset CC CXX LD LDPLUSPLUS AR AS NM RANLIB STRIP SDKROOT
 mkdir -p build
 
 report_failure() {
-  rg -n -C 3 --max-columns 300 --max-columns-preview 'error:|failed|Failed|XCTAssert' "$1" || true
+  rg -n -C 3 --max-columns 300 --max-columns-preview 'error:|failed|Failed|XCTAssert|KEYBOARD_SELECTION' "$1" || true
   tail -n 45 "$1"
 }
 

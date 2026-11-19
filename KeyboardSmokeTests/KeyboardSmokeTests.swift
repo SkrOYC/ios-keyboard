@@ -28,7 +28,9 @@ final class KeyboardSmokeTests: XCTestCase {
         tapSetting(keyboard, in: settings)
 
         app.activate()
-        if !app.keyboards.firstMatch.waitForExistence(timeout: 5) { field.tap() }
+        let keyboardRestored = app.keyboards.firstMatch.waitForExistence(timeout: 5)
+        print("KEYBOARD_SELECTION activated keyboardExists=\(keyboardRestored)")
+        if !keyboardRestored { field.tap() }
         dismissSystemKeyboardIntroduction(in: app)
         selectKeyboardExtension(in: app)
         dismissEditingMenu(in: app)
@@ -166,7 +168,8 @@ final class KeyboardSmokeTests: XCTestCase {
     }
 
     private func selectKeyboardExtension(in app: XCUIApplication) {
-        for _ in 0..<5 {
+        for cycle in 0..<5 {
+            print("KEYBOARD_SELECTION cycle=\(cycle)")
             dismissSystemKeyboardIntroduction(in: app)
             let first = key("q", in: app)
             let keysReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
@@ -179,11 +182,81 @@ final class KeyboardSmokeTests: XCTestCase {
             let inputReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                 self.isOnScreen(first, in: app) || self.isOnScreen(globe, in: app)
             }, object: app)
-            XCTAssertEqual(XCTWaiter.wait(for: [inputReady], timeout: 15), .completed, app.debugDescription)
+            let result = XCTWaiter.wait(for: [inputReady], timeout: 15)
+            if result != .completed {
+                for (name, application) in [("host", app), ("springboard", XCUIApplication(bundleIdentifier: "com.apple.springboard"))] {
+                    print("KEYBOARD_SELECTION \(name) BEGIN")
+                    for line in selectionHierarchy(application.debugDescription).components(separatedBy: .newlines) {
+                        print("KEYBOARD_SELECTION \(line)")
+                    }
+                    print("KEYBOARD_SELECTION \(name) END")
+                }
+            }
+            XCTAssertEqual(result, .completed, "Keyboard selection state is in KEYBOARD_SELECTION diagnostics")
             if isOnScreen(first, in: app) { return }
             // Native iPad keyboard elements can have valid frames but invalid AX hit points.
             coordinate(globe, in: app).tap()
+            print("KEYBOARD_SELECTION globe tapped")
         }
+    }
+
+    private func selectionHierarchy(_ description: String) -> String {
+        let node = try! NSRegularExpression(pattern: "^([ \\t]*)(?:→\\s*)?([A-Za-z]+), 0x[0-9a-fA-F]+")
+        let frame = try! NSRegularExpression(pattern: "\\{\\{[-+0-9.eEinfNa, ]+\\}, \\{[-+0-9.eEinfNa, ]+\\}\\}")
+        let attribute = try! NSRegularExpression(pattern: ", (identifier|label): '([^'\\n]*)'")
+        let labels: Set<String> = ["Keyboard Host", "Next keyboard", "Emoji", "Keyboard", "English", "English (US)",
+                                   "Quickly Change Keyboards", "Continue", "Not Now", "Done", "Cancel", "Dictation",
+                                   "Show Keyboard", "Hide Keyboard", "123", "ABC", "q", "AutoFill", "Paste",
+                                   "Keyboard Settings…", "Keyboard Settings..."]
+        let identifiers: Set<String> = ["keyboard-sample", "key-q", "UIContinuousPathIntroductionView"]
+        var output = ""
+        var count = 0
+        for line in description.components(separatedBy: .newlines) {
+            let range = NSRange(line.startIndex..., in: line)
+            guard let match = node.firstMatch(in: line, range: range),
+                  let indentation = Range(match.range(at: 1), in: line),
+                  let type = Range(match.range(at: 2), in: line) else { continue }
+            var summary = String(repeating: " ", count: min(line[indentation].count, 20)) + line[type]
+            if let match = frame.firstMatch(in: line, range: range), let bounds = Range(match.range, in: line) {
+                summary += " " + line[bounds]
+            }
+            for match in attribute.matches(in: line, range: range) {
+                guard let kind = Range(match.range(at: 1), in: line),
+                      let value = Range(match.range(at: 2), in: line) else { continue }
+                let allowed = line[kind] == "label" ? labels : identifiers
+                if allowed.contains(String(line[value])) { summary += " \(line[kind])=\(line[value])" }
+            }
+            guard count < 200, output.count + summary.count + 1 < 19_980 else {
+                output += "[truncated]\n"
+                break
+            }
+            output += summary + "\n"
+            count += 1
+        }
+        return output.isEmpty ? "[no accessible nodes]" : output
+    }
+
+    func testSelectionHierarchyRedactsInputAndBoundsOutput() {
+        let hierarchy = """
+        Element subtree:
+         →Application, 0xabc, pid: 123, label: 'Keyboard Host'
+            TextView, 0xdef, {{1.0, 2.0}, {100.0, 50.0}}, identifier: 'keyboard-sample', value: 'private-input-fixture
+        private-input-continuation'
+            Button, 0x123, {{4.0, 5.0}, {20.0, 30.0}}, label: 'Next keyboard', value: 'private-button-value'
+            StaticText, 0x456, label: 'private-suggestion'
+        """
+        let summary = selectionHierarchy(hierarchy)
+        XCTAssertTrue(summary.contains("label=Next keyboard"))
+        XCTAssertTrue(summary.contains("identifier=keyboard-sample"))
+        XCTAssertTrue(summary.contains("{{1.0, 2.0}, {100.0, 50.0}}"))
+        XCTAssertFalse(summary.contains("private-"))
+        XCTAssertFalse(summary.contains("value"))
+        XCTAssertEqual(selectionHierarchy(""), "[no accessible nodes]")
+        XCTAssertEqual(selectionHierarchy("malformed input"), "[no accessible nodes]")
+        let bounded = selectionHierarchy(String(repeating: hierarchy, count: 500))
+        XCTAssertTrue(bounded.contains("[truncated]"))
+        XCTAssertLessThanOrEqual(bounded.count, 20_000)
+        XCTAssertLessThanOrEqual(bounded.components(separatedBy: .newlines).count, 202)
     }
 
     private func dismissEditingMenu(in app: XCUIApplication) {
