@@ -291,11 +291,14 @@ final class KeyboardSmokeTests: XCTestCase {
         XCTAssertTrue(paste.waitForExistence(timeout: 5), app.debugDescription)
         coordinate(paste, in: app).tap()
         let allow = app.alerts.buttons["Allow Paste"].firstMatch
+        let systemAllow = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.buttons["Allow Paste"].firstMatch
         let ready = expectation(for: NSPredicate { _, _ in
-            field.value as? String == "👩‍💻" || allow.exists
+            field.value as? String == "👩‍💻" || allow.exists || systemAllow.exists
         }, evaluatedWith: field)
-        wait(for: [ready], timeout: 5)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed,
+                       app.debugDescription + XCUIApplication(bundleIdentifier: "com.apple.springboard").debugDescription)
         if allow.exists { allow.tap() }
+        else if systemAllow.exists { systemAllow.tap() }
         assertText("👩‍💻", in: field)
     }
 
