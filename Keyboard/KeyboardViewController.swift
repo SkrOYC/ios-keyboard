@@ -81,7 +81,7 @@ final class KeyboardViewController: UIInputViewController {
         #endif
         if !reportedLayout {
             reportedLayout = true
-            diagnose("layout · \(view.bounds.width)×\(view.bounds.height) · \(layout.isSplit ? "split" : "unified") · window=\(view.window != nil)")
+            diagnose("layout · \(view.bounds.width)×\(view.bounds.height) · \(layout.isSplit ? "split" : "unified") · window=\(view.window != nil) · presented=\(keyboard.isPresentationActive)")
         }
     }
 
