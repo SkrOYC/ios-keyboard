@@ -1,39 +1,39 @@
 # Hex keyboard decisions
 
-These decisions define the implementation and its verification, including the native Liquid Glass refresh. All milestones have green CI evidence; see [Implementation report](IMPLEMENTATION_REPORT.md) for run links and device validation boundaries. Superseded entries retain their original reasons.
+These decisions define the implementation and its verification. See [Implementation report](IMPLEMENTATION_REPORT.md) for run links and device validation boundaries and [Design](DESIGN.md) for current behaviour. Superseded entries retain their original reasons.
 
 - D01: Use filled hexagons and their round strokes for hit-testing because visible gaps must insert nothing.
 - D02: Track every touch independently because two thumbs need separate gesture state, popup state, and hold timers.
 - D03: Snapshot the input layer and letter order at touch-down because another touch must not change the starting character.
 - D04: Keep layer toggling shared because both thumbs use one displayed keyboard layer.
 - D05: Process the final release position before inferring a hold because a movement callback can be absent.
-- D06: Cancel holds after 10 design units of movement because small finger jitter needs tolerance.
-- D07: Keep holds at 420 milliseconds because elapsed time is independent of display width.
-- D08: Scale spatial thresholds with width because the 70-unit gesture distance belongs to the reference design space.
+- D06 (superseded by D95): Cancel holds after 10 design units of movement because small finger jitter needs tolerance.
+- D07 (superseded by D95): Keep holds at 420 milliseconds because elapsed time is independent of display width.
+- D08 (superseded by D90): Scale spatial thresholds with width because the 70-unit gesture distance belongs to the reference design space.
 - D09: Repeat deletion from the first firing position because the prototype measures further leftward travel from that point.
 - D10: Cancel contacts on resize, picker opening, and keyboard handoff because their coordinates or input destination become stale.
 - D11: Cancel contacts when switch-key availability changes because an open popup must not retain a stale globe entry.
 - D12: Use full-precision Double geometry because rendering and tests need the same formula results.
 - D13: Measure neighbour distances before horizontal stretching because the reference formulas stretch only x coordinates.
 - D14: Use proportional 14-unit canvas margins because responsive footprints must remain continuous with the reference layout.
-- D15: Use portrait key height width × 883 / 1320, about 261 points at 390 points wide, because this preserves the reference scale.
-- D16: Place the 22-point debug strip outside the key area because diagnostics must not compress the reference geometry.
-- D17: Use a 180-point compact key area and a 320-point height cap because the host needs editing space.
-- D18: Cap tablet key width at 700 points and centre it because full-width tablet keys become difficult to reach.
-- D19: Use the available phone width because landscape typing needs horizontal space.
+- D15 (superseded by D90): Use portrait key height width × 883 / 1320, about 261 points at 390 points wide, because this preserves the reference scale.
+- D16 (superseded by D96): Place the 22-point debug strip outside the key area because diagnostics must not compress the reference geometry.
+- D17 (superseded by D91): Use a 180-point compact key area and a 320-point height cap because the host needs editing space.
+- D18 (superseded by D91): Cap tablet key width at 700 points and centre it because full-width tablet keys become difficult to reach.
+- D19 (superseded by D91): Use the available phone width because landscape typing needs horizontal space.
 - D20 (superseded by D65): Preserve transparent backgrounds and the original Glass fills because the system supplies the Liquid Glass platter.
-- D21: Use the system typeface and bound glyph size by key height because flattened landscape hexes need legible labels.
+- D21 (superseded by D90): Use the system typeface and bound glyph size by key height because flattened landscape hexes need legible labels.
 - D22: Use neutral preset names and the three specified orders because selectable layouts must remain covered by spec parity checks.
-- D23: Store only the raw preset key in the extension defaults because an App Group is prohibited.
+- D23 (extended by D96): Store only the raw preset key in the extension defaults because an App Group is prohibited.
 - D24: Fall back to Familiar for missing or invalid preferences because input must remain usable after malformed stored data.
 - D25: Keep the symbol layer unchanged during preset selection because the preference controls letters only.
-- D26: Replace keys temporarily with an in-keyboard picker because preset selection must not overlap active letter input.
+- D26 (extended by D94): Replace keys temporarily with an in-keyboard picker because preset selection must not overlap active letter input.
 - D27: Use a horizontal picker row in compact height and 44-point controls because both orientations need usable tap targets.
-- D28: Expose one keyboard-key accessibility element per key because drawn shapes need explicit accessible identities.
+- D28 (extended by D92): Expose one keyboard-key accessibility element per key because drawn shapes need explicit accessible identities.
 - D29: Keep the mode and period identifiers stable and name symbol keys by their displayed characters because automation must locate both layers.
 - D30: Provide delete, space, return, capitalization, punctuation, and conditional switching actions because VoiceOver must not require directional swipes.
-- D31: Expose order selection as a custom action because the picker must be reachable without a hold.
-- D32: Keep diagnostics outside screen reader navigation because typing controls need a focused navigation order.
+- D31 (extended by D94): Expose order selection as a custom action because the picker must be reachable without a hold.
+- D32 (extended by D96): Keep diagnostics outside screen reader navigation because typing controls need a focused navigation order.
 - D33: Track debug labels weakly across controller instances because the visible strip must receive action updates.
 - D34: Log action names without character values because diagnostics must not retain typed content.
 - D35: Put the host test field before setup instructions because typed text must remain visible with the keyboard open.
@@ -63,23 +63,23 @@ These decisions define the implementation and its verification, including the na
 - D59: Cycle the system globe with fixed coordinates because native iPad accessibility hit points can be invalid.
 - D60: Collect extension launch logs and crash reports on UI failure because a native keyboard preview cannot identify the cause.
 - D61: Check Done in the landscape picker because dismissing preferences must preserve text and letter order.
-- D62 (superseded by D77): Back popup hexes with an opaque adaptive color because underlying letters showed through the dark translucent fills.
-- D63: Treat reverse-engineering notes as background because the bundled HTML defines this keyboard's geometry and gestures.
+- D62 (superseded by D93): Back popup hexes with an opaque adaptive color because underlying letters showed through the dark translucent fills.
+- D63 (superseded by D99): Treat reverse-engineering notes as background because the bundled HTML defines this keyboard's geometry and gestures.
 - D64: Give each probe a distinct evidence artifact because parallel uploads require unique artifact names.
-- D65: Replace flat key fills with native Liquid Glass because all 28 keys need the chosen material treatment.
-- D66: Prioritize iPhone portrait and landscape because a dedicated iPad layout is outside this refresh.
+- D65 (extended by D97): Replace flat key fills with native Liquid Glass because all 28 keys need the chosen material treatment.
+- D66 (superseded by D91): Prioritize iPhone portrait and landscape because a dedicated iPad layout is outside this refresh.
 - D67: Reject masked UIKit glass surfaces because simulator images showed rectangular material outside the hexes.
 - D68: Use SwiftUI glassEffect with an explicit Shape because the material must follow the rounded hex silhouette.
 - D69: Retain UIKit touch handling, key elements, and UILabel identities because visual materials must preserve input and accessibility behavior.
 - D70: Union each filled polygon with its round stroke because the native material footprint must match Core hit-testing.
-- D71: Share one hosting configuration and glass container per grid or popup because independent hosts add unnecessary rendering overhead.
+- D71 (superseded for popups by D93): Share one hosting configuration and glass container per grid or popup because independent hosts add unnecessary rendering overhead.
 - D72: Use zero glass-container merge spacing because adjacent keys must retain their visible gaps.
 - D73: Cache material geometry and surface definitions because typing feedback must avoid rebuilding paths on every movement.
-- D74: Use regular glass because letter and punctuation legibility requires adaptive background protection.
-- D75: Compress pressed faces by 2.5 percent with short feedback because each contact needs an immediate visual cue without delaying input.
+- D74 (superseded for popups by D93): Use regular glass because letter and punctuation legibility requires adaptive background protection.
+- D75 (extended by D97): Compress pressed faces by 2.5 percent with short feedback because each contact needs an immediate visual cue without delaying input.
 - D76: Disable custom motion under Reduce Motion because the keyboard must respect the system preference.
-- D77: Suppress covered base glyphs while punctuation is open because overlapping letters compete with popup labels.
-- D78: Mount popup content before applying glass because the first hold needs visible choices even during material appearance.
+- D77 (extended by D93): Suppress covered base glyphs while punctuation is open because overlapping letters compete with popup labels.
+- D78 (superseded by D93): Mount popup content before applying glass because the first hold needs visible choices even during material appearance.
 - D79: Use native glass button configurations for presets because standard controls provide platform appearance and interaction.
 - D80: Use neutral glass for Done because it dismisses without applying changes and the prominent title had poor visual contrast.
 - D81: Require separate light, dark, and contrast iPhone probes because each appearance needs direct functional and screenshot evidence.
@@ -91,3 +91,15 @@ These decisions define the implementation and its verification, including the na
 - D87: Log popup creation with a neutral action name because visual evidence must distinguish model opening from material rendering.
 - D88: Report simulator memory observations separately from device performance because screenshots do not establish peak footprint or typing latency.
 - D89: Squash the verified feature and remove its completed branch because the keyboard changes form one coherent repository update.
+- D90: Build geometry at 1320×883 with one uniform scale for keys and spatial thresholds because changing container aspect must not squash keys.
+- D91: Select split by available width at 600 points and clamp reference scale by height and overlap budgets because orientation and tablet width alone do not determine comfortable key size.
+- D92: Translate mirror halves horizontally and duplicate column 3 with shared slots but primary-only accessibility because both thumbs need the inner column without duplicate VoiceOver stops.
+- D93: Use an opaque inward rectangular popup plate with touch-origin selection and two-axis cancel slop because choices must stay legible and quick flicks must not require reaching the plate.
+- D94: Give 123 tap layers, swipe-up caps/presets, hold trackpad, and accessible alternatives because these jobs need distinct gestures without dedicated keys.
+- D95: Read hold, slop, swipe, and cursor thresholds from validated tuning because feel must be adjustable without recompiling while delete repeat retains its formula.
+- D96: Persist extension-owned tuning and gate the external strip and neutral diagnostics with DEVTOOLS in Debug and sideload Release because on-phone experiments need immediate controls without Full Access or shared storage.
+- D97: Combine tintColor accents, a dark HDR lift over visible SDR feedback, light darkening, and compression respecting Reduce Motion because feedback must survive unavailable headroom and cannot rely on colour alone.
+- D98: Keep caps lock in the machine and convert incremental grapheme cursor steps to proxy UTF-16 offsets because labels, insertions, and emoji boundaries must agree across input paths.
+- D99: Limit prototype authority to strictly parity-checked shared values and describe all orders as an assumed-constant model without user testing because neither the prototype nor the order model validates current ergonomics.
+- D100: Extend rather than replace the phone and tablet probes and preserve popup video markers because new gestures and split copies need evidence without weakening lifecycle, archive, or IPA gates.
+- D101: Separate local simulator, CI, and device-only evidence because screenshots cannot verify HDR, physical gesture feel, host iPad framing, or termination persistence.
