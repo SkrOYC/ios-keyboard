@@ -102,7 +102,7 @@ collect_extension_diagnostics() {
   /usr/bin/xcrun simctl spawn "$simulator" log show --style compact --last 10m --info --debug \
     --predicate 'process == "Keyboard" OR eventMessage CONTAINS "com.skroyc.keyboard.Keyboard"' \
     > "build/${probe_name}-extension.log" 2>&1 || true
-  python3 - "$probe_name" <<'PY'
+  python3 - "$probe_name" "$simulator" <<'PY'
 from pathlib import Path
 import shutil
 import sys
@@ -110,6 +110,12 @@ import sys
 reports = Path.home() / "Library/Logs/DiagnosticReports"
 for index, report in enumerate(sorted(reports.glob("Keyboard*.ips"))):
     shutil.copyfile(report, Path("build") / f"{sys.argv[1]}-crash-{index}.txt")
+containers = (Path.home() / "Library/Developer/CoreSimulator/Devices" / sys.argv[2]
+              / "data/Containers/Data/PluginKitPlugin")
+for index, log in enumerate(sorted(containers.glob("*/Library/Caches/keyboard.log"))):
+    shutil.copyfile(log, Path("build") / f"{sys.argv[1]}-actions-{index}.log")
+    print("Recent neutral keyboard actions:")
+    print("".join(log.read_text().splitlines(keepends=True)[-50:]))
 PY
 }
 
