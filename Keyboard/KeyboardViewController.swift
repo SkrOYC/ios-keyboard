@@ -4,6 +4,7 @@ final class KeyboardViewController: UIInputViewController {
     private let keyboard = HexKeyboardView()
     private var heightConstraint: NSLayoutConstraint!
     private var tuning = KeyboardTuning()
+    private var reportedLayout = false
     #if DEVTOOLS
     private var tuningStrip: TuningStripView?
     private let stripHeight: CGFloat = 60
@@ -41,8 +42,15 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        reportedLayout = false
+        diagnose("appearing")
         keyboard.needsGlobe = needsInputModeSwitchKey
         view.setNeedsLayout()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        diagnose("visible")
     }
 
     override func viewDidLayoutSubviews() {
@@ -70,12 +78,17 @@ final class KeyboardViewController: UIInputViewController {
                                    width: view.bounds.width - view.safeAreaInsets.left - view.safeAreaInsets.right - 16,
                                    height: stripHeight)
         #endif
+        if !reportedLayout {
+            reportedLayout = true
+            diagnose("layout · \(view.bounds.width)×\(view.bounds.height) · \(layout.isSplit ? "split" : "unified")")
+        }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         keyboard.cancelTouches()
         keyboard.resetCapsLock()
+        diagnose("hidden")
     }
 
     private func perform(_ action: KeyboardAction) {
