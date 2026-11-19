@@ -1,8 +1,10 @@
 import XCTest
+import UIKit
 
 final class KeyboardSmokeTests: XCTestCase {
     func testInstallEnableAndTypeWithKeyboardExtension() throws {
         continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
         let app = XCUIApplication()
         app.launch()
         let field = app.descendants(matching: .any)["keyboard-sample"].firstMatch
@@ -12,6 +14,10 @@ final class KeyboardSmokeTests: XCTestCase {
 
         let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
         settings.launch()
+        while settings.navigationBars.buttons.firstMatch.exists
+            && !settings.cells.containing(.staticText, identifier: "General").firstMatch.exists {
+            settings.navigationBars.buttons.firstMatch.tap()
+        }
         let general = settings.cells.containing(.staticText, identifier: "General").firstMatch
         for _ in 0..<5 where !isOnScreen(general, in: settings) {
             settings.swipeUp()
@@ -20,12 +26,16 @@ final class KeyboardSmokeTests: XCTestCase {
         tapSetting(general, in: settings)
         tapSetting(settings.cells.containing(.staticText, identifier: "Keyboard").firstMatch, in: settings)
         tapSetting(settings.cells.containing(.staticText, identifier: "Keyboards").firstMatch, in: settings)
-        let addKeyboard = settings.buttons["AddNewKeyboard"].firstMatch
-        XCTAssertTrue(addKeyboard.waitForExistence(timeout: 10), settings.debugDescription)
-        tapSetting(addKeyboard, in: settings)
-        let keyboard = settings.cells["Keyboard Host"].firstMatch
-        XCTAssertTrue(keyboard.waitForExistence(timeout: 10), settings.debugDescription)
-        tapSetting(keyboard, in: settings)
+        let installedKeyboard = settings.cells["com.skroyc.keyboard.Keyboard"]
+        if !installedKeyboard.exists {
+            let addKeyboard = settings.buttons["AddNewKeyboard"].firstMatch
+            XCTAssertTrue(addKeyboard.waitForExistence(timeout: 10), settings.debugDescription)
+            tapSetting(addKeyboard, in: settings)
+            let keyboard = settings.cells["Keyboard Host"].firstMatch
+            XCTAssertTrue(keyboard.waitForExistence(timeout: 10), settings.debugDescription)
+            tapSetting(keyboard, in: settings)
+        }
+        XCTAssertTrue(installedKeyboard.waitForExistence(timeout: 10), settings.debugDescription)
 
         app.activate()
         let keyboardRestored = app.keyboards.firstMatch.waitForExistence(timeout: 5)
@@ -35,6 +45,24 @@ final class KeyboardSmokeTests: XCTestCase {
         selectKeyboardExtension(in: app)
         dismissEditingMenu(in: app)
         XCTAssertTrue(key("q", in: app).waitForExistence(timeout: 10), app.debugDescription)
+        app.buttons["tuning-reset"].tap()
+        openPicker(in: app)
+        app.buttons["preset-familiar"].tap()
+        pasteEmoji(into: field, in: app)
+        tap(key("q", in: app))
+        assertText("👩‍💻q", in: field)
+        moveCursorFromLayerKey(direction: -1, in: app)
+        tap(key("h", in: app))
+        assertText("h👩‍💻q", in: field)
+        let emoji = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        emoji.name = "Trackpad preserves emoji grapheme"
+        emoji.lifetime = .keepAlways
+        add(emoji)
+        moveCursorFromLayerKey(direction: 1, in: app)
+        for expected in ["h👩‍💻", "h", ""] {
+            swipe(key("q", in: app), dx: -1, dy: 0)
+            assertText(expected, in: field)
+        }
         let before = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         before.name = "Keyboard before gestures"
         before.lifetime = .keepAlways
@@ -87,9 +115,36 @@ final class KeyboardSmokeTests: XCTestCase {
         assertText("Hi \n123.,", in: field)
         origin.press(forDuration: 0.55)
         assertText("Hi \n123.,", in: field)
+        let columnPitch = key("e", in: app).frame.midX - key("q", in: app).frame.midX
+        origin.press(forDuration: 0.55, thenDragTo: origin.withOffset(CGVector(dx: -columnPitch, dy: -rowPitch)))
+        assertText("Hi \n123.,?", in: field)
+
+        swipe(key("123", in: app), dx: 0, dy: -1)
+        XCTAssertEqual(key("123", in: app).value as? String, "Caps lock on")
+        for letter in "abcdefghijklmnopqrstuvwxyz" {
+            XCTAssertEqual(key(String(letter), in: app).label, String(letter).uppercased())
+        }
+        tap(key("h", in: app))
+        assertText("Hi \n123.,?H", in: field)
+        swipe(key("123", in: app), dx: 0, dy: -1)
+        XCTAssertEqual(key("123", in: app).value as? String, "Caps lock off")
+        XCTAssertEqual(key("h", in: app).label, "h")
+
+        let trackpad = key("123", in: app)
+        coordinate(trackpad, in: app).press(forDuration: 0.55)
+        assertText("Hi \n123.,?H", in: field)
+        moveCursorFromLayerKey(direction: -1, in: app)
+        tap(key("q", in: app))
+        assertText("Hi \n123.,q?H", in: field)
+        moveCursorFromLayerKey(direction: 1, in: app)
 
         let familiarE = key("e", in: app).frame
-        coordinate(key("123", in: app), in: app).press(forDuration: 0.55)
+        openPicker(in: app)
+        XCTAssertTrue(app.buttons["preset-familiar"].isSelected)
+        app.buttons["preset-done"].tap()
+        assertText("Hi \n123.,q?H", in: field)
+        XCTAssertEqual(key("e", in: app).frame, familiarE)
+        openPicker(in: app)
         XCTAssertTrue(app.buttons["preset-thumbSplit"].waitForExistence(timeout: 5))
         let picker = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         picker.name = "Letter order picker"
@@ -97,12 +152,13 @@ final class KeyboardSmokeTests: XCTestCase {
         add(picker)
         app.buttons["preset-thumbSplit"].tap()
         XCTAssertNotEqual(key("e", in: app).frame, familiarE)
-        coordinate(key("123", in: app), in: app).press(forDuration: 0.55)
+        openPicker(in: app)
         app.buttons["preset-keepEA"].tap()
         XCTAssertTrue(key("e", in: app).exists)
-        coordinate(key("123", in: app), in: app).press(forDuration: 0.55)
+        openPicker(in: app)
         app.buttons["preset-familiar"].tap()
         XCTAssertEqual(key("e", in: app).frame, familiarE)
+        assertText("Hi \n123.,q?H", in: field)
 
         let portrait = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         portrait.name = "Keyboard in portrait"
@@ -113,20 +169,43 @@ final class KeyboardSmokeTests: XCTestCase {
         let rotated = expectation(for: NSPredicate { _, _ in app.frame.width > app.frame.height }, evaluatedWith: app)
         wait(for: [rotated], timeout: 15)
         XCTAssertTrue(key("q", in: app).waitForExistence(timeout: 10))
+        let splitReady = expectation(for: NSPredicate { _, _ in
+            self.key("g", in: app).frame.midX < app.frame.midX
+                && self.key("h", in: app).frame.midX > app.frame.midX
+        }, evaluatedWith: app)
+        wait(for: [splitReady], timeout: 10)
+        for letter in ["g", "f", "n", "v"] {
+            XCTAssertTrue(key(letter, in: app).isHittable)
+            XCTAssertLessThan(key(letter, in: app).frame.midX, app.frame.midX)
+        }
+        for letter in ["y", "h", "o", "period"] {
+            XCTAssertTrue(key(letter, in: app).isHittable)
+            XCTAssertGreaterThan(key(letter, in: app).frame.midX, app.frame.midX)
+        }
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: app.frame.width / 2, dy: key("h", in: app).frame.midY - app.frame.minY)).tap()
+        assertText("Hi \n123.,q?H", in: field)
+        tap(key("g", in: app))
+        let rightCopy = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: key("h", in: app).frame.midX - (key("e", in: app).frame.midX - key("q", in: app).frame.midX) - app.frame.minX,
+            dy: key("g", in: app).frame.midY - app.frame.minY))
+        rightCopy.tap()
+        assertText("Hi \n123.,q?Hgg", in: field)
         tap(key("q", in: app))
-        assertText("Hi \n123.,q", in: field)
+        assertText("Hi \n123.,q?Hggq", in: field)
         NSLog("HEX_POPUP_LANDSCAPE")
         coordinate(key("period", in: app), in: app).press(forDuration: 8)
-        assertText("Hi \n123.,q", in: field)
+        assertText("Hi \n123.,q?Hggq", in: field)
         let landscape = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         landscape.name = "Keyboard in landscape"
         landscape.lifetime = .keepAlways
         add(landscape)
         let landscapeText = field.value as? String ?? ""
         let landscapeE = key("e", in: app).frame
-        coordinate(key("123", in: app), in: app).press(forDuration: 0.55)
+        openPicker(in: app)
         let done = app.buttons["preset-done"]
         XCTAssertTrue(done.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["preset-familiar"].isSelected)
         let compactPicker = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         compactPicker.name = "Letter order picker in landscape"
         compactPicker.lifetime = .keepAlways
@@ -194,6 +273,39 @@ final class KeyboardSmokeTests: XCTestCase {
         for width in [0.0, -1.0, .infinity, .nan] {
             XCTAssertNil(repeatDeleteMotion(footprintWidth: width))
         }
+    }
+
+    private func openPicker(in app: XCUIApplication) {
+        let layer = key("123", in: app)
+        let start = coordinate(layer, in: app)
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(
+            CGVector(dx: layer.frame.width * 0.8, dy: -layer.frame.height * 1.6)
+        ))
+        XCTAssertTrue(app.buttons["preset-done"].waitForExistence(timeout: 5), app.debugDescription)
+    }
+
+    private func pasteEmoji(into field: XCUIElement, in app: XCUIApplication) {
+        UIPasteboard.general.string = "👩‍💻"
+        field.press(forDuration: 1)
+        let paste = app.descendants(matching: .any)["Paste"].firstMatch
+        XCTAssertTrue(paste.waitForExistence(timeout: 5), app.debugDescription)
+        coordinate(paste, in: app).tap()
+        let allow = app.alerts.buttons["Allow Paste"].firstMatch
+        let ready = expectation(for: NSPredicate { _, _ in
+            field.value as? String == "👩‍💻" || allow.exists
+        }, evaluatedWith: field)
+        wait(for: [ready], timeout: 5)
+        if allow.exists { allow.tap() }
+        assertText("👩‍💻", in: field)
+    }
+
+    private func moveCursorFromLayerKey(direction: CGFloat, in app: XCUIApplication) {
+        let layer = key("123", in: app)
+        let start = coordinate(layer, in: app)
+        // 0.4 key heights travels 2.45 default cursor steps, away from a step boundary.
+        start.press(forDuration: 0.55, thenDragTo: start.withOffset(
+            CGVector(dx: direction * layer.frame.height * 0.4, dy: 0)
+        ))
     }
 
     private func swipe(_ key: XCUIElement, dx: CGFloat, dy: CGFloat) {
