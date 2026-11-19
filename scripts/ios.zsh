@@ -98,6 +98,14 @@ compile_tests() {
 
 collect_extension_diagnostics() {
   local probe_name=$1
+  local keyboard_pids=$(/usr/bin/pgrep -x Keyboard || true)
+  if [[ -z $keyboard_pids ]]; then print 'Keyboard processes: none'; fi
+  local pid
+  for pid in ${(f)keyboard_pids}; do
+    print "Keyboard process found: $pid"
+    /usr/bin/sample "$pid" 1 -file "$PWD/build/${probe_name}-process-${pid}.sample.txt" \
+      > "build/${probe_name}-process-${pid}.log" 2>&1 || true
+  done
   /usr/bin/xcrun simctl spawn "$simulator" log help show > build/log-show-help.txt 2>&1 || true
   /usr/bin/xcrun simctl spawn "$simulator" log show --style compact --last 10m --info --debug \
     --predicate 'process == "Keyboard" OR eventMessage CONTAINS "com.skroyc.keyboard.Keyboard"' \
@@ -108,6 +116,12 @@ import json
 import shutil
 import sys
 
+for sample in sorted(Path("build").glob(f"{sys.argv[1]}-process-*.sample.txt")):
+    try:
+        print("Keyboard process sample:")
+        print("".join(sample.read_text(errors="replace").splitlines(keepends=True)[:140]))
+    except OSError:
+        print("Keyboard process sample: unreadable report")
 reports = Path.home() / "Library/Logs/DiagnosticReports"
 crashes = sorted(reports.glob("Keyboard*.ips"))
 print(f"Keyboard crash reports: {len(crashes)}")

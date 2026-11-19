@@ -52,14 +52,24 @@ class ExtensionDiagnosticsTests(unittest.TestCase):
     def test_reports_when_no_crashes_exist(self):
         self.assertEqual(self.collect(), "Keyboard crash reports: 0\n")
 
+    def test_process_sample_output_is_bounded(self):
+        (self.home / "build/Probe-process-1.sample.txt").write_text(
+            "".join(f"stack-frame-{index}\n" for index in range(200))
+        )
+        output = self.collect()
+        self.assertIn("stack-frame-139\n", output)
+        self.assertNotIn("stack-frame-140\n", output)
+
     def test_bad_report_does_not_hide_action_logs(self):
         (self.reports / "Keyboard-fixture.ips").write_text("invalid report")
+        (self.home / "build/Probe-process-1.sample.txt").mkdir()
         log = (self.home / "Library/Developer/CoreSimulator/Devices/sim/data/Containers"
                / "Data/PluginKitPlugin/fixture/Library/Caches/keyboard.log")
         log.parent.mkdir(parents=True)
         log.write_text("ready\n")
         output = self.collect()
         self.assertIn("unreadable report", output)
+        self.assertIn("Keyboard process sample: unreadable report", output)
         self.assertIn("Recent neutral keyboard actions:\nready", output)
 
 
