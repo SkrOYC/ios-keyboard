@@ -4,7 +4,9 @@
 
 The keyboard implements uniform-scale unified/split layout, mirrored halves with duplicated column 3, opaque popup plates, period punctuation, 123 swipe-up caps/presets, hold trackpad, machine-owned caps lock, and persisted DEVTOOLS tuning. See [Design](DESIGN.md) for behaviour and parameter metadata and [Decisions](DECISIONS.md) for rationale. Letter orders use assumed model constants without user testing; they are not validated ergonomic recommendations.
 
-**Current change CI: PENDING — replace with the green four-job push run URL after all matrix jobs finish.**
+**Current change CI:** [Run 44616449530](https://github.com/SkrOYC/ios-keyboard/actions/runs/44616449530) passed phone, phone-dark, and tablet. Phone-contrast failed at the pre-feature keyboard-selection wait for `key-q` or the native globe, the same predicate that failed in [master's tablet control](https://github.com/SkrOYC/ios-keyboard/actions/runs/44599682230) on the same runner image. This does not establish that the phone-contrast failure is a baseline issue.
+
+**Next run: PENDING — record the four build-job results and run URL after this documentation push.**
 
 The [material baseline run](https://github.com/SkrOYC/ios-keyboard/actions/runs/44016204422) establishes the preceding native-glass baseline, not verification of the split/gesture changes. The workflow retains four independent required jobs: phone light, phone dark, phone Increase Contrast (Debug), and tablet dark (Release). Each runs source gates, compilation, 33 Foundation tests, 8 UIKit tests, and one full Settings-to-typing UI probe: 42 tests per job. The phone-light job also archives the device app and validates the unsigned IPA. No tag or release is part of this change.
 
