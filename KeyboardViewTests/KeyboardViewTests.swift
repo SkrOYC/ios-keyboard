@@ -149,6 +149,38 @@ final class KeyboardViewTests: XCTestCase {
         XCTAssertTrue(view.plateBounds.isNull)
     }
 
+    @MainActor
+    func testPickerControlsFitAtMinimumSplitScaleAndAfterResize() throws {
+        let view = keyboard()
+        var tuning = KeyboardTuning()
+        tuning.layoutMode = .split
+        tuning[.splitKeyScale] = TuningParameter.splitKeyScale.range.lowerBound
+        view.showPicker()
+        let panel = try XCTUnwrap(view.subviews.compactMap { $0 as? UIStackView }.first)
+        let choices = try XCTUnwrap(panel.arrangedSubviews[1] as? UIStackView)
+        let done = try XCTUnwrap(panel.arrangedSubviews.last as? UIButton)
+        for (width, scale) in [(844.0, 0.25), (390.0, 0.25), (844.0, 0.75), (390.0, 1.5), (844.0, 0.25)] {
+            tuning[.splitKeyScale] = scale
+            let layout = HexLayout(containerWidth: width, shorterSide: 390, tablet: false, tuning: tuning)
+            view.frame.size = CGSize(width: layout.width, height: layout.height)
+            view.configure(layout: layout, tuning: tuning)
+            view.layoutIfNeeded()
+            panel.layoutIfNeeded()
+            choices.layoutIfNeeded()
+            for button in choices.arrangedSubviews + [done] {
+                let frame = button.convert(button.bounds, to: view)
+                XCTAssertTrue(view.bounds.contains(frame), "\(frame) outside \(view.bounds)")
+                XCTAssertGreaterThanOrEqual(frame.height, 44)
+                XCTAssertFalse(button.isHidden)
+            }
+            let center = done.convert(CGPoint(x: done.bounds.midX, y: done.bounds.midY), to: view)
+            XCTAssertTrue(view.hitTest(center, with: nil) === done)
+        }
+        done.sendActions(for: .touchUpInside)
+        XCTAssertNil(panel.superview)
+        XCTAssertEqual(view.accessibilityElements?.count, 28)
+    }
+
     #if DEVTOOLS
     @MainActor
     func testTuningControlsPersistClampCycleAndReset() throws {

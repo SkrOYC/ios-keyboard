@@ -325,7 +325,9 @@ final class HexKeyboardView: UIView {
         panel.addArrangedSubview(choices)
         let close = pickerButton("Done")
         close.accessibilityIdentifier = "preset-done"
-        close.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        let closeHeight = close.heightAnchor.constraint(equalToConstant: 44)
+        closeHeight.priority = .defaultHigh
+        closeHeight.isActive = true
         close.addAction(UIAction { [weak self] _ in self?.hidePicker() }, for: .touchUpInside)
         panel.addArrangedSubview(close)
         pickerChoices = choices
@@ -348,9 +350,12 @@ final class HexKeyboardView: UIView {
 
     private func layoutPicker() {
         guard let panel = pickerPanel else { return }
-        let compact = bounds.height < 220
+        let compact = bounds.height < 228
+        let singleRow = bounds.height < 128
+        panel.axis = singleRow ? .horizontal : .vertical
+        panel.arrangedSubviews.first?.isHidden = singleRow
         pickerChoices?.axis = compact ? .horizontal : .vertical
-        let height: CGFloat = compact ? 128 : 228
+        let height = min(bounds.height, singleRow ? 44 : compact ? 128 : 228)
         panel.frame = CGRect(x: 16, y: max(0, (bounds.height - height) / 2), width: bounds.width - 32, height: height)
     }
 
