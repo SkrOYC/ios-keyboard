@@ -161,9 +161,11 @@ final class KeyboardSmokeTests: XCTestCase {
     private func dismissSystemKeyboardIntroduction(in app: XCUIApplication) {
         let introduction = app.otherElements["UIContinuousPathIntroductionView"]
         if introduction.exists {
+            print("KEYBOARD_SELECTION introduction visible")
             let button = app.buttons["Continue"].firstMatch
             XCTAssertTrue(button.waitForExistence(timeout: 5))
             button.tap()
+            print("KEYBOARD_SELECTION introduction dismissed")
         }
     }
 
@@ -175,7 +177,11 @@ final class KeyboardSmokeTests: XCTestCase {
             let keysReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                 self.isOnScreen(first, in: app)
             }, object: first)
-            if XCTWaiter.wait(for: [keysReady], timeout: 15) == .completed { return }
+            if XCTWaiter.wait(for: [keysReady], timeout: 15) == .completed {
+                print("KEYBOARD_SELECTION extension ready")
+                return
+            }
+            print("KEYBOARD_SELECTION extension unavailable")
             let globe = app.buttons.matching(NSPredicate(
                 format: "label == %@ OR (label == %@ AND value == %@)", "Next keyboard", "Emoji", "Keyboard"
             )).firstMatch

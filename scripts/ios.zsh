@@ -148,6 +148,7 @@ run_tests() {
   /usr/bin/xcrun xcresulttool export attachments --help > build/xcresult-export-help.txt
   /usr/bin/xcrun xcresulttool export attachments --path "$probe_result" --output-path "$probe_screenshots"
   /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/${probe_name}.png"
+  rg 'KEYBOARD_SELECTION' "$probe_log" || true
   tail -n 25 "$probe_log"
   return "$capture_result"
 }
