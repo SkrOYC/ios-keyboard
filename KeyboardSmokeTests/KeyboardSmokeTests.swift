@@ -111,12 +111,13 @@ final class KeyboardSmokeTests: XCTestCase {
         let rowPitch = period.frame.midY - key("k", in: app).frame.midY
         let comma = origin.withOffset(CGVector(dx: 0, dy: -1.2 * rowPitch))
         NSLog("HEX_POPUP_PORTRAIT")
-        origin.press(forDuration: 8, thenDragTo: comma)
+        holdAndDrag(period, to: comma, in: app, duration: 8)
         assertText("Hi \n123.,", in: field)
-        origin.press(forDuration: 0.55)
+        holdAndDrag(period, to: coordinate(period, in: app), in: app)
         assertText("Hi \n123.,", in: field)
         let columnPitch = key("e", in: app).frame.midX - key("q", in: app).frame.midX
-        origin.press(forDuration: 0.55, thenDragTo: origin.withOffset(CGVector(dx: -columnPitch, dy: -rowPitch)))
+        holdAndDrag(period, to: coordinate(period, in: app).withOffset(
+            CGVector(dx: -columnPitch, dy: -rowPitch)), in: app)
         assertText("Hi \n123.,?", in: field)
 
         swipe(key("123", in: app), dx: 0, dy: -1)
@@ -131,7 +132,7 @@ final class KeyboardSmokeTests: XCTestCase {
         XCTAssertEqual(key("h", in: app).label, "h")
 
         let trackpad = key("123", in: app)
-        coordinate(trackpad, in: app).press(forDuration: 0.55)
+        holdAndDrag(trackpad, to: coordinate(trackpad, in: app), in: app)
         assertText("Hi \n123.,?H", in: field)
         moveCursorFromLayerKey(direction: -1, in: app)
         tap(key("q", in: app))
@@ -194,7 +195,9 @@ final class KeyboardSmokeTests: XCTestCase {
         tap(key("q", in: app))
         assertText("Hi \n123.,q?Hggq", in: field)
         NSLog("HEX_POPUP_LANDSCAPE")
-        coordinate(key("period", in: app), in: app).press(forDuration: 8)
+        let landscapePeriod = key("period", in: app)
+        holdAndDrag(landscapePeriod, to: coordinate(landscapePeriod, in: app),
+                    in: app, duration: 8)
         assertText("Hi \n123.,q?Hggq", in: field)
         let landscape = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         landscape.name = "Keyboard in landscape"
@@ -306,9 +309,15 @@ final class KeyboardSmokeTests: XCTestCase {
         let layer = key("123", in: app)
         let start = coordinate(layer, in: app)
         // 0.4 key heights travels 2.45 default cursor steps, away from a step boundary.
-        start.press(forDuration: 0.55, thenDragTo: start.withOffset(
+        holdAndDrag(layer, to: start.withOffset(
             CGVector(dx: direction * layer.frame.height * 0.4, dy: 0)
-        ))
+        ), in: app)
+    }
+
+    private func holdAndDrag(_ key: XCUIElement, to end: XCUICoordinate,
+                             in app: XCUIApplication, duration: TimeInterval = 1) {
+        let start = coordinate(key, in: app)
+        start.press(forDuration: duration, thenDragTo: end)
     }
 
     private func swipe(_ key: XCUIElement, dx: CGFloat, dy: CGFloat) {
