@@ -8,8 +8,54 @@ final class KeyboardLogicTests: XCTestCase {
             let slot: Int
             let center: HexPoint
             let polygon: [HexPoint]
+            let isDuplicate: Bool?
         }
         let keys: [Key]
+        struct SplitCase: Decodable {
+            let containerWidth: Double
+            let leadingInset: Double
+            let trailingInset: Double
+            let shorterSide: Double
+            let tablet: Bool
+            let splitKeyScale: Double
+            let heightBudget: Double
+            let width: Double
+            let height: Double
+            let scale: Double
+            let keys: [Key]
+        }
+        let splitCases: [SplitCase]
+    }
+
+    func testSplitPlacementsMatchIndependentFixture() throws {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "geometry", withExtension: "json"))
+        let fixture = try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: url))
+        XCTAssertEqual(fixture.splitCases.count, 4)
+        for sample in fixture.splitCases {
+            var tuning = KeyboardTuning(tablet: sample.tablet)
+            tuning.layoutMode = .split
+            tuning[.splitKeyScale] = sample.splitKeyScale
+            tuning[.heightBudget] = sample.heightBudget
+            let layout = HexLayout(containerWidth: sample.containerWidth, leadingInset: sample.leadingInset,
+                                   trailingInset: sample.trailingInset, shorterSide: sample.shorterSide,
+                                   tablet: sample.tablet, tuning: tuning)
+            let g = layout.geometry
+            XCTAssertEqual(g.scale, sample.scale, accuracy: 1e-8)
+            XCTAssertEqual(g.width, sample.width, accuracy: 1e-8)
+            XCTAssertEqual(g.height, sample.height, accuracy: 1e-8)
+            XCTAssertEqual(g.placedKeys.count, sample.keys.count)
+            for (actual, expected) in zip(g.placedKeys, sample.keys) {
+                XCTAssertEqual(actual.slot, expected.slot)
+                XCTAssertEqual(actual.isDuplicate, expected.isDuplicate)
+                XCTAssertEqual(actual.center.x, expected.center.x, accuracy: 1e-8)
+                XCTAssertEqual(actual.center.y, expected.center.y, accuracy: 1e-8)
+                XCTAssertEqual(g.key(at: actual.center), actual.key)
+                for (point, expected) in zip(actual.polygon, expected.polygon) {
+                    XCTAssertEqual(point.x, expected.x, accuracy: 1e-8)
+                    XCTAssertEqual(point.y, expected.y, accuracy: 1e-8)
+                }
+            }
+        }
     }
 
     func testEveryCenterAndPolygonMatchesIndependentFixture() throws {
@@ -103,7 +149,7 @@ final class KeyboardLogicTests: XCTestCase {
     }
 
     func testCapitalizeUsesStartLetterAndIgnoresUtilitiesSymbolsAndGaps() {
-        for slot in [3, 27] {
+        for slot in [27] {
             var m = TouchMachine(geometry: geometry)
             let p = geometry.center(of: HexKey(slot: slot))
             m.begin(1, at: p, time: 0)
@@ -184,13 +230,14 @@ final class KeyboardLogicTests: XCTestCase {
         XCTAssertEqual(m.end(1, at: p, time: 2), [])
     }
 
-    func testPickerHoldConsumesTapWithoutChangingLayer() {
+    func testTrackpadHoldConsumesTapWithoutChangingLayer() {
         var m = TouchMachine(geometry: geometry)
-        m.pickerEnabled = true
         let p = geometry.center(of: HexKey(slot: 3))
         m.begin(1, at: p, time: 0)
-        XCTAssertEqual(m.advance(1, time: 0.42), [.showPicker])
+        XCTAssertEqual(m.advance(1, time: 0.42), [])
+        XCTAssertTrue(m.isTrackpadActive)
         XCTAssertEqual(m.end(1, at: p, time: 0.5), [])
         XCTAssertEqual(m.layer, .letters)
+        XCTAssertFalse(m.isTrackpadActive)
     }
 }

@@ -9,7 +9,7 @@ enum LetterOrder: String, CaseIterable {
         switch self {
         case .familiar: return "wqzeasxtrdcgfnvyuhmiljbopk"
         case .thumbSplit: return "wqztnsxlrdcgfmvyuhaiejbopk"
-        case .keepEA: return "wqzeacxyiougfjvhtsmrndbplk"
+        case .keepEA: return "wqzueaxyoijgtcvfrhmdnsbkpl"
         }
     }
 
@@ -31,9 +31,11 @@ enum SymbolLayer {
 
 enum KeyboardLayer: Equatable { case letters, symbols }
 
-func keyLabel(_ key: HexKey, layer: KeyboardLayer, order: LetterOrder) -> String {
+func keyLabel(_ key: HexKey, layer: KeyboardLayer, order: LetterOrder, capsLock: Bool = false) -> String {
     if key.isLayer { return layer == .letters ? "123" : "abc" }
     if key.isPeriod { return "." }
     guard let index = key.letterIndex else { return "" }
-    return layer == .letters ? order.letter(at: index) : SymbolLayer.symbol(at: index)
+    if layer == .symbols { return SymbolLayer.symbol(at: index) }
+    let letter = order.letter(at: index)
+    return capsLock ? letter.uppercased() : letter
 }

@@ -37,7 +37,8 @@ final class KeyboardViewController: UIInputViewController {
             containerWidth: Double(view.bounds.width),
             leadingInset: Double(view.safeAreaInsets.left),
             trailingInset: Double(view.safeAreaInsets.right),
-            compactHeight: traitCollection.verticalSizeClass == .compact,
+            shorterSide: Double(min((view.window?.screen.bounds ?? view.bounds).width,
+                                    (view.window?.screen.bounds ?? view.bounds).height)),
             tablet: traitCollection.userInterfaceIdiom == .pad
         )
         let height = CGFloat(layout.height) + stripHeight
@@ -73,6 +74,11 @@ final class KeyboardViewController: UIInputViewController {
         case .showPicker:
             DebugLog.log("letter order")
             keyboard.showPicker()
+        case .moveCursor(let graphemes):
+            textDocumentProxy.adjustTextPosition(byCharacterOffset: cursorUTF16Offset(
+                graphemes: graphemes, before: textDocumentProxy.documentContextBeforeInput,
+                after: textDocumentProxy.documentContextAfterInput))
+            DebugLog.log("cursor")
         }
     }
 }

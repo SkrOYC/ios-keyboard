@@ -52,7 +52,51 @@ def generate():
             dy = other["center"]["y"] - center["y"]
             if (oc == column and math.isclose(abs(dy), d, abs_tol=1e-8)) or (abs(oc - column) == 1 and math.isclose(abs(dy), d / 2, abs_tol=1e-8)):
                 assert math.isclose(math.hypot(dx, dy), d, abs_tol=1e-5)
-    return {"width": width, "height": height, "keys": keys}
+    split_cases = []
+    for container, leading, trailing, shorter, tablet, key_scale, budget in [
+        (844, 44, 44, 390, False, 0.75, 320),
+        (1024, 20, 40, 768, True, 1.0, 320),
+        (900, 10, 10, 768, True, 1.0, 120),
+        (320, 0, 0, 768, True, 1.5, 600),
+    ]:
+        available = container - leading - trailing
+        half_width = keys[12]["center"]["x"] + radius
+        scale = min(min(shorter, 430) / width * key_scale,
+                    budget / height, available / (2 * half_width))
+        right_offset = available - width * scale
+        placed = []
+        for key in keys + keys[12:16]:
+            duplicate = len(placed) >= 28
+            offset = right_offset if duplicate or key["slot"] // 4 > 3 else 0
+
+            def transform(point):
+                return {"x": point["x"] * scale + offset, "y": point["y"] * scale}
+
+            placed.append({"slot": key["slot"], "center": transform(key["center"]),
+                           "polygon": [transform(p) for p in key["polygon"]],
+                           "isDuplicate": duplicate})
+        assert len(placed) == 32
+        assert [key["slot"] for key in placed if key["isDuplicate"]] == list(range(12, 16))
+        assert math.isclose(placed[0]["center"]["x"] - radius * scale, 14 * scale, abs_tol=1e-8)
+        assert math.isclose(placed[24]["center"]["x"] + radius * scale,
+                            available - 14 * scale, abs_tol=1e-8)
+        assert placed[12]["center"]["x"] + radius * scale <= placed[28]["center"]["x"] - radius * scale + 1e-8
+        for key in placed:
+            center = key["center"]
+            assert any(math.isclose(center["x"] + other["center"]["x"], available, abs_tol=1e-8)
+                       and math.isclose(center["y"], other["center"]["y"], abs_tol=1e-8)
+                       for other in placed)
+            for index, p in enumerate(key["polygon"]):
+                q = key["polygon"][(index + 1) % 6]
+                px, py = (p["x"] - center["x"]) / sx, p["y"] - center["y"]
+                qx, qy = (q["x"] - center["x"]) / sx, q["y"] - center["y"]
+                apothem = abs(px * qy - py * qx) / math.hypot(qx - px, qy - py)
+                assert math.isclose(apothem, (a - 6) * scale, abs_tol=1e-8)
+        split_cases.append({"containerWidth": container, "leadingInset": leading,
+                            "trailingInset": trailing, "shorterSide": shorter, "tablet": tablet,
+                            "splitKeyScale": key_scale, "heightBudget": budget,
+                            "width": available, "height": height * scale, "scale": scale, "keys": placed})
+    return {"width": width, "height": height, "keys": keys, "splitCases": split_cases}
 
 
 if __name__ == "__main__":
@@ -64,4 +108,4 @@ if __name__ == "__main__":
         assert FIXTURE.read_text() == content, "Geometry fixture is stale; regenerate it"
     else:
         FIXTURE.write_text(content)
-    print("Geometry fixture: bounds, apothems, neighbours, and symmetry OK")
+    print("Geometry fixture: bounds, apothems, neighbours, symmetry, and split placements OK")

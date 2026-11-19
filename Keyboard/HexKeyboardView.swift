@@ -34,7 +34,6 @@ final class HexKeyboardView: UIView {
         isMultipleTouchEnabled = true
         isAccessibilityElement = false
         machine.order = presetStore.order
-        machine.pickerEnabled = true
         addSubview(glassRenderer)
         for key in machine.geometry.keys {
             let label = UILabel()
@@ -188,7 +187,7 @@ final class HexKeyboardView: UIView {
 
     private func scheduleHold(_ id: Int) {
         guard let key = machine.contacts[id]?.startKey, key.isPeriod || key.isLayer else { return }
-        let timer = Timer(timeInterval: TouchMachine.holdMilliseconds / 1000, repeats: false) { [weak self] _ in
+        let timer = Timer(timeInterval: machine.tuning.holdMilliseconds / 1000, repeats: false) { [weak self] _ in
             guard let self else { return }
             self.holdTimers.removeValue(forKey: id)
             self.send(self.machine.advance(id, time: ProcessInfo.processInfo.systemUptime))
@@ -227,14 +226,13 @@ final class HexKeyboardView: UIView {
                 let label = popupLabels[id]![index]
                 label.text = entry.choice.label
                 label.textColor = .label
-                let a = CGFloat(popup.apothem)
-                let radius = a / CGFloat(HexGeometry.cosine30) * CGFloat(popup.horizontalScale)
+                let a = CGFloat(popup.cellHeight / 2)
+                let radius = CGFloat(popup.cellWidth / 2)
                 label.font = .systemFont(ofSize: min(24, a * 1.05))
                 coverage.append(CGRect(x: CGFloat(entry.center.x) - radius, y: CGFloat(entry.center.y) - a,
                                        width: 2 * radius, height: 2 * a))
-                return HexGlassSurface(id: index, polygon: machine.geometry.polygon(
-                    center: entry.center, apothem: popup.apothem - machine.geometry.stroke / 2
-                ), stroke: machine.geometry.stroke, label: label)
+                return HexGlassSurface(id: index, polygon: entry.rect.polygon,
+                                       stroke: machine.geometry.stroke, label: label)
             }
             let renderer = popupRenderers[id]!
             renderer.frame = bounds
