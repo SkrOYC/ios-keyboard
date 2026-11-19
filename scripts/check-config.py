@@ -75,7 +75,8 @@ def main():
     assert renderer["type"] == "bundle.unit-test"
     assert {source["path"] for source in renderer["sources"]} == {
         "Keyboard/Core", "Keyboard/HexKeyboardView.swift", "Keyboard/HexGlassRendererView.swift",
-        "Keyboard/PopupPlateView.swift", "Keyboard/DebugLog.swift", "KeyboardViewTests"
+        "Keyboard/PopupPlateView.swift", "Keyboard/DebugLog.swift",
+        "Keyboard/KeyboardViewController.swift", "KeyboardViewTests"
     }
     conditions = spec["targets"]["Keyboard"]["settings"]["configs"]
     assert conditions == {

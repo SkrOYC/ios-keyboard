@@ -183,6 +183,46 @@ final class KeyboardViewTests: XCTestCase {
 
     #if DEVTOOLS
     @MainActor
+    func testControllerRequestsBudgetedHeightBeforeAppearanceWithFullScreenBounds() throws {
+        let defaults = UserDefaults.standard
+        let saved = TuningParameter.allCases.map { parameter in
+            let key = "tuning.\(parameter.rawValue)"
+            return (key, defaults.object(forKey: key))
+        }
+        defer { for (key, value) in saved { defaults.set(value, forKey: key) } }
+        for budget in [120.0, 320, 600] {
+            var tuning = KeyboardTuning()
+            tuning[.heightBudget] = budget
+            TuningStore(defaults: defaults).tuning = tuning
+            let controller = KeyboardViewController()
+            controller.loadViewIfNeeded()
+            for containerHeight in [874.0, 329, 1600] {
+                controller.view.frame = CGRect(x: 0, y: 0, width: 402, height: containerHeight)
+                controller.viewDidLayoutSubviews()
+                let constraint = try XCTUnwrap(controller.view.constraints.first {
+                    $0.firstItem as? UIView === controller.view && $0.firstAttribute == .height
+                        && $0.secondItem == nil && $0.relation == .equal
+                })
+                let keyHeight = CGFloat(min(402 * 883 / 1320, budget))
+                XCTAssertNil(controller.view.window)
+                XCTAssertTrue(constraint.isActive)
+                XCTAssertEqual(constraint.priority.rawValue, 999)
+                XCTAssertEqual(constraint.constant, keyHeight + 60, accuracy: 1e-8)
+                XCTAssertEqual(controller.preferredContentSize.height, keyHeight + 60, accuracy: 1e-8)
+                XCTAssertLessThanOrEqual(constraint.constant, CGFloat(tuning.heightBudget) + 60)
+                let intrinsic = controller.view.intrinsicContentSize.height
+                let fitting = controller.view.systemLayoutSizeFitting(
+                    CGSize(width: 402, height: 0), withHorizontalFittingPriority: .required,
+                    verticalFittingPriority: .fittingSizeLevel).height
+                XCTAssertLessThanOrEqual(intrinsic, CGFloat(tuning.heightBudget) + 60)
+                XCTAssertEqual(fitting, keyHeight + 60,
+                               accuracy: 1 / max(1, controller.traitCollection.displayScale))
+                print("Height request: bounds=402×\(containerHeight), budget=\(budget), constraint=\(constraint.constant), preferred=\(controller.preferredContentSize.height), intrinsic=\(intrinsic), fitting=\(fitting)")
+            }
+        }
+    }
+
+    @MainActor
     func testTuningControlsPersistClampCycleAndReset() throws {
         let suite = "TuningStripTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

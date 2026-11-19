@@ -104,6 +104,7 @@ targets:
       - path: Keyboard/HexGlassRendererView.swift
       - path: Keyboard/PopupPlateView.swift
       - path: Keyboard/DebugLog.swift
+      - path: Keyboard/KeyboardViewController.swift
       - path: KeyboardViewTests
     settings:
       base:
