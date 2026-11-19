@@ -8,13 +8,8 @@ final class HexGlassRendererView: UIView {
     private var pressed: Set<Int> = []
     private var obscured: Set<Int> = []
     private var surfaces: [HexGlassSurface] = []
-    private var hasPresented = false
     var isPresentationActive = false {
-        didSet {
-            guard oldValue != isPresentationActive else { return }
-            if isPresentationActive { hasPresented = true }
-            render()
-        }
+        didSet { if oldValue != isPresentationActive { render() } }
     }
     var highlightExposure = 1.0 {
         didSet { if oldValue != highlightExposure { render() } }
@@ -26,6 +21,7 @@ final class HexGlassRendererView: UIView {
         super.init(frame: .zero)
         backgroundColor = .clear
         isOpaque = false
+        layer.preferredDynamicRange = .standard
         isUserInteractionEnabled = false
         isAccessibilityElement = false
         accessibilityElementsHidden = true
@@ -82,10 +78,8 @@ final class HexGlassRendererView: UIView {
     private func render() {
         guard renderedSize.width > 0, renderedSize.height > 0 else { return }
         let lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
-        if hasPresented {
-            layer.preferredDynamicRange = isPresentationActive && window != nil && !lowPower
-                ? .high : .constrainedHigh
-        }
+        layer.preferredDynamicRange = isPresentationActive && window != nil
+            ? (lowPower ? .constrainedHigh : .high) : .standard
         let hdr = isPresentationActive && !lowPower && (window?.screen.currentEDRHeadroom ?? 1) > 1
             && (window?.screen.potentialEDRHeadroom ?? 1) > 1
         let canvas = HexGlassCanvas(items: items, pressed: pressed, obscured: obscured,
@@ -105,7 +99,7 @@ final class HexGlassRendererView: UIView {
             content = view
         }
         content?.frame = bounds
-        if hasPresented { content?.layer.preferredDynamicRange = layer.preferredDynamicRange }
+        content?.layer.preferredDynamicRange = layer.preferredDynamicRange
     }
 
     override func tintColorDidChange() {

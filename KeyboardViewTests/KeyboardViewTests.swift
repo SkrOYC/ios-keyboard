@@ -82,22 +82,21 @@ final class KeyboardViewTests: XCTestCase {
     }
 
     @MainActor
-    func testDynamicRangeStaysAtItsDefaultUntilPresentationIsActive() throws {
+    func testDynamicRangeStaysStandardUntilPresentationIsActive() throws {
         let surface = HexGlassSurface(id: 0, polygon: [HexPoint(x: 0, y: 0), HexPoint(x: 40, y: 0),
                                                        HexPoint(x: 40, y: 40), HexPoint(x: 0, y: 40)],
                                       stroke: 1, label: UILabel())
         for surfaces in [[], [surface]] {
             let renderer = HexGlassRendererView()
-            let initialRange = renderer.layer.preferredDynamicRange
-            XCTAssertEqual(initialRange, CALayer().preferredDynamicRange)
+            XCTAssertEqual(renderer.layer.preferredDynamicRange, .standard)
             renderer.update(surfaces: [], size: .zero)
             XCTAssertTrue(renderer.subviews.isEmpty)
             renderer.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
             renderer.update(surfaces: surfaces, size: renderer.bounds.size)
             let content = try XCTUnwrap(renderer.subviews.first)
             XCTAssertNil(renderer.window)
-            XCTAssertEqual(renderer.layer.preferredDynamicRange, initialRange)
-            let initialContentRange = content.layer.preferredDynamicRange
+            XCTAssertEqual(renderer.layer.preferredDynamicRange, .standard)
+            XCTAssertEqual(content.layer.preferredDynamicRange, .standard)
 
             let window = UIWindow(frame: renderer.bounds)
             let controller = UIViewController()
@@ -106,21 +105,21 @@ final class KeyboardViewTests: XCTestCase {
             window.isHidden = false
             defer { window.isHidden = true }
             XCTAssertTrue(renderer.window === window)
-            XCTAssertEqual(renderer.layer.preferredDynamicRange, initialRange)
-            XCTAssertEqual(content.layer.preferredDynamicRange, initialContentRange)
+            XCTAssertEqual(renderer.layer.preferredDynamicRange, .standard)
+            XCTAssertEqual(content.layer.preferredDynamicRange, .standard)
             renderer.isPresentationActive = true
             XCTAssertEqual(renderer.layer.preferredDynamicRange,
                            ProcessInfo.processInfo.isLowPowerModeEnabled ? .constrainedHigh : .high)
             XCTAssertEqual(content.layer.preferredDynamicRange, renderer.layer.preferredDynamicRange)
 
             renderer.isPresentationActive = false
-            XCTAssertEqual(renderer.layer.preferredDynamicRange, .constrainedHigh)
-            XCTAssertEqual(content.layer.preferredDynamicRange, .constrainedHigh)
+            XCTAssertEqual(renderer.layer.preferredDynamicRange, .standard)
+            XCTAssertEqual(content.layer.preferredDynamicRange, .standard)
             renderer.isPresentationActive = true
             renderer.removeFromSuperview()
             XCTAssertNil(renderer.window)
-            XCTAssertEqual(renderer.layer.preferredDynamicRange, .constrainedHigh)
-            XCTAssertEqual(content.layer.preferredDynamicRange, .constrainedHigh)
+            XCTAssertEqual(renderer.layer.preferredDynamicRange, .standard)
+            XCTAssertEqual(content.layer.preferredDynamicRange, .standard)
         }
     }
 
