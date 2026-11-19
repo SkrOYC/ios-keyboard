@@ -6,6 +6,9 @@ final class HexKeyboardView: UIView {
     var onDiagnostic: ((String) -> Void)?
     private var machine = TouchMachine(geometry: HexGeometry())
     private var labels: [UILabel] = []
+    var isPresentationActive = false {
+        didSet { glassRenderer.isPresentationActive = isPresentationActive }
+    }
     private let glassRenderer = HexGlassRendererView()
     private var keyElements: [KeyAccessibilityElement] = []
     private var touchIDs: [ObjectIdentifier: Int] = [:]

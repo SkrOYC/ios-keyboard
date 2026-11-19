@@ -50,6 +50,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        keyboard.isPresentationActive = true
         diagnose("visible")
     }
 
@@ -80,12 +81,13 @@ final class KeyboardViewController: UIInputViewController {
         #endif
         if !reportedLayout {
             reportedLayout = true
-            diagnose("layout · \(view.bounds.width)×\(view.bounds.height) · \(layout.isSplit ? "split" : "unified")")
+            diagnose("layout · \(view.bounds.width)×\(view.bounds.height) · \(layout.isSplit ? "split" : "unified") · window=\(view.window != nil)")
         }
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        keyboard.isPresentationActive = false
         keyboard.cancelTouches()
         keyboard.resetCapsLock()
         diagnose("hidden")

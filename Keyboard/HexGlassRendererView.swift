@@ -8,6 +8,9 @@ final class HexGlassRendererView: UIView {
     private var pressed: Set<Int> = []
     private var obscured: Set<Int> = []
     private var surfaces: [HexGlassSurface] = []
+    var isPresentationActive = false {
+        didSet { if oldValue != isPresentationActive { render() } }
+    }
     var highlightExposure = 1.0 {
         didSet { if oldValue != highlightExposure { render() } }
     }
@@ -18,6 +21,7 @@ final class HexGlassRendererView: UIView {
         super.init(frame: .zero)
         backgroundColor = .clear
         isOpaque = false
+        layer.preferredDynamicRange = .standard
         isUserInteractionEnabled = false
         isAccessibilityElement = false
         accessibilityElementsHidden = true
@@ -74,8 +78,9 @@ final class HexGlassRendererView: UIView {
     private func render() {
         guard renderedSize.width > 0, renderedSize.height > 0 else { return }
         let lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
-        layer.preferredDynamicRange = lowPower ? .constrainedHigh : .high
-        let hdr = !lowPower && (window?.screen.currentEDRHeadroom ?? 1) > 1
+        layer.preferredDynamicRange = isPresentationActive && window != nil
+            ? (lowPower ? .constrainedHigh : .high) : .standard
+        let hdr = isPresentationActive && !lowPower && (window?.screen.currentEDRHeadroom ?? 1) > 1
             && (window?.screen.potentialEDRHeadroom ?? 1) > 1
         let canvas = HexGlassCanvas(items: items, pressed: pressed, obscured: obscured,
                                     size: renderedSize, accent: Color(uiColor: tintColor),
@@ -94,7 +99,7 @@ final class HexGlassRendererView: UIView {
             content = view
         }
         content?.frame = bounds
-        content?.layer.preferredDynamicRange = lowPower ? .constrainedHigh : .high
+        content?.layer.preferredDynamicRange = layer.preferredDynamicRange
     }
 
     override func tintColorDidChange() {
