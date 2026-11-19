@@ -217,12 +217,15 @@ final class KeyboardSmokeTests: XCTestCase {
         let identifiers: Set<String> = ["keyboard-sample", "key-q", "UIContinuousPathIntroductionView"]
         var output = ""
         var count = 0
+        var truncated = false
+        var relevant: [String] = []
         for line in description.components(separatedBy: .newlines) {
             let range = NSRange(line.startIndex..., in: line)
             guard let match = node.firstMatch(in: line, range: range),
                   let indentation = Range(match.range(at: 1), in: line),
                   let type = Range(match.range(at: 2), in: line) else { continue }
             var summary = String(repeating: " ", count: min(line[indentation].count, 20)) + line[type]
+            var isRelevant = false
             if let match = frame.firstMatch(in: line, range: range), let bounds = Range(match.range, in: line) {
                 summary += " " + line[bounds]
             }
@@ -230,14 +233,28 @@ final class KeyboardSmokeTests: XCTestCase {
                 guard let kind = Range(match.range(at: 1), in: line),
                       let value = Range(match.range(at: 2), in: line) else { continue }
                 let allowed = line[kind] == "label" ? labels : identifiers
-                if allowed.contains(String(line[value])) { summary += " \(line[kind])=\(line[value])" }
+                if allowed.contains(String(line[value])) {
+                    summary += " \(line[kind])=\(line[value])"
+                    isRelevant = true
+                }
             }
-            guard count < 200, output.count + summary.count + 1 < 19_980 else {
-                output += "[truncated]\n"
-                break
+            if isRelevant {
+                relevant.append(summary)
+                if relevant.count > 30 { relevant.removeFirst() }
+            }
+            guard count < 160, output.count + summary.count + 1 < 16_000 else {
+                truncated = true
+                continue
             }
             output += summary + "\n"
             count += 1
+        }
+        if truncated {
+            output += "[truncated]\nRelevant controls:\n"
+            for summary in relevant {
+                guard output.count + summary.count + 1 < 19_980 else { break }
+                output += summary + "\n"
+            }
         }
         return output.isEmpty ? "[no accessible nodes]" : output
     }
@@ -263,6 +280,9 @@ final class KeyboardSmokeTests: XCTestCase {
         XCTAssertTrue(bounded.contains("[truncated]"))
         XCTAssertLessThanOrEqual(bounded.count, 20_000)
         XCTAssertLessThanOrEqual(bounded.components(separatedBy: .newlines).count, 202)
+        let lateControl = selectionHierarchy(String(repeating: " Other, 0xabc\n", count: 500)
+                                            + " Button, 0xdef, label: 'Continue'")
+        XCTAssertTrue(lateControl.contains("label=Continue"))
     }
 
     private func dismissEditingMenu(in app: XCUIApplication) {
