@@ -302,9 +302,9 @@ final class KeyboardSmokeTests: XCTestCase {
     private func moveCursorFromLayerKey(direction: CGFloat, in app: XCUIApplication) {
         let layer = key("123", in: app)
         let start = coordinate(layer, in: app)
-        // 0.4 key heights travels 2.45 default cursor steps, away from a step boundary.
-        start.press(forDuration: 0.55, thenDragTo: start.withOffset(
-            CGVector(dx: direction * layer.frame.height * 0.4, dy: 0)
+        // 0.36 key heights travels 2.2 default cursor steps, below the swipe threshold.
+        start.press(forDuration: 1, thenDragTo: start.withOffset(
+            CGVector(dx: direction * layer.frame.height * 0.36, dy: 0)
         ))
     }
 

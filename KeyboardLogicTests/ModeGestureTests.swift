@@ -68,6 +68,40 @@ final class ModeGestureTests: XCTestCase {
         XCTAssertEqual(m.end(2, at: p, time: 1), [])
     }
 
+    func testTrackpadProbeTravelAcrossUnifiedAndSplitScales() {
+        for width in [390.0, 1032, 1376] {
+            for splitScale in [0.25, 0.75, 1.0] {
+                var tuning = KeyboardTuning(tablet: width >= 600)
+                tuning[.splitKeyScale] = splitScale
+                let layout = HexLayout(containerWidth: width, shorterSide: min(width, 1032),
+                                       tablet: width >= 600, tuning: tuning)
+                let g = layout.geometry
+                let p = g.center(of: HexKey(slot: 3))
+                let travel = 2 * g.apothem * 0.36
+                let step = tuning.trackpadUnitsPerCharacter * g.scale
+                XCTAssertGreaterThan(travel, 2 * step)
+                XCTAssertLessThan(travel, 3 * step)
+                XCTAssertLessThan(travel, tuning.swipeThreshold * g.scale)
+                XCTAssertGreaterThan(p.x - travel, 0)
+                for direction in [-1.0, 1] {
+                    var m = TouchMachine(geometry: g)
+                    m.tuning = tuning
+                    m.begin(1, at: p, time: 0)
+                    XCTAssertEqual(m.advance(1, time: tuning.holdMilliseconds / 1000), [])
+                    let end = HexPoint(x: p.x + direction * travel, y: p.y)
+                    XCTAssertEqual(m.move(1, to: end), [.moveCursor(graphemes: Int(direction) * 2)])
+                    XCTAssertEqual(m.end(1, at: end, time: 1), [])
+                    XCTAssertFalse(m.isTrackpadActive)
+                }
+
+                var pendingHold = TouchMachine(geometry: g)
+                pendingHold.tuning = tuning
+                pendingHold.begin(1, at: p, time: 0)
+                XCTAssertEqual(pendingHold.move(1, to: HexPoint(x: p.x - 2 * g.apothem * 0.4, y: p.y)), [.delete])
+            }
+        }
+    }
+
     func testTuningScalesHoldSlopSwipeAndTrackpad() {
         let g = HexGeometry(width: 660, height: 441.5)
         var m = TouchMachine(geometry: g)
