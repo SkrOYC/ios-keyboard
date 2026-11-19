@@ -98,60 +98,19 @@ compile_tests() {
 
 collect_extension_diagnostics() {
   local probe_name=$1
-  local keyboard_pids=$(/usr/bin/pgrep -x Keyboard || true)
-  if [[ -z $keyboard_pids ]]; then print 'Keyboard processes: none'; fi
-  local pid
-  for pid in ${(f)keyboard_pids}; do
-    print "Keyboard process found: $pid"
-    /usr/bin/sample "$pid" 1 -file "$PWD/build/${probe_name}-process-${pid}.sample.txt" \
-      > "build/${probe_name}-process-${pid}.log" 2>&1 || true
-  done
   /usr/bin/xcrun simctl spawn "$simulator" log help show > build/log-show-help.txt 2>&1 || true
   /usr/bin/xcrun simctl spawn "$simulator" log show --style compact --last 10m --info --debug \
     --predicate 'process == "Keyboard" OR eventMessage CONTAINS "com.skroyc.keyboard.Keyboard"' \
     > "build/${probe_name}-extension.log" 2>&1 || true
-  python3 - "$probe_name" "$simulator" <<'PY'
+  python3 - "$probe_name" <<'PY'
 from pathlib import Path
-import json
 import shutil
 import sys
 
-for sample in sorted(Path("build").glob(f"{sys.argv[1]}-process-*.sample.txt")):
-    try:
-        print("Keyboard process sample:")
-        print("".join(sample.read_text(errors="replace").splitlines(keepends=True)[:140]))
-    except OSError:
-        print("Keyboard process sample: unreadable report")
 reports = Path.home() / "Library/Logs/DiagnosticReports"
-crashes = sorted(reports.glob("Keyboard*.ips"))
-print(f"Keyboard crash reports: {len(crashes)}")
-for index, report in enumerate(crashes):
+for index, report in enumerate(sorted(reports.glob("Keyboard*.ips"))):
     shutil.copyfile(report, Path("build") / f"{sys.argv[1]}-crash-{index}.txt")
-    try:
-        raw = report.read_text().lstrip()
-        details, end = json.JSONDecoder().raw_decode(raw)
-        if raw[end:].strip():
-            details = json.loads(raw[end:])
-        threads = details.get("threads", [])
-        fault = details.get("faultingThread")
-        thread = threads[fault] if isinstance(fault, int) and 0 <= fault < len(threads) else {}
-        print("Keyboard crash summary:", json.dumps({
-            "process": details.get("procName"),
-            "exception": details.get("exception"),
-            "termination": details.get("termination"),
-            "frames": [frame.get("symbol", "<unknown>") for frame in thread.get("frames", [])[:12]],
-        }))
-    except (OSError, ValueError, TypeError, AttributeError):
-        print("Keyboard crash summary: unreadable report")
-containers = (Path.home() / "Library/Developer/CoreSimulator/Devices" / sys.argv[2]
-              / "data/Containers/Data/PluginKitPlugin")
-for index, log in enumerate(sorted(containers.glob("*/Library/Caches/keyboard.log"))):
-    shutil.copyfile(log, Path("build") / f"{sys.argv[1]}-actions-{index}.log")
-    print("Recent neutral keyboard actions:")
-    print("".join(log.read_text().splitlines(keepends=True)[-50:]))
 PY
-  rg -i 'crash|termination|killed|jetsam|exception|watchdog|memory pressure' \
-    "build/${probe_name}-extension.log" | tail -n 50 || true
 }
 
 run_tests() {

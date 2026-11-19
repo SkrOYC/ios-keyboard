@@ -111,13 +111,12 @@ final class KeyboardSmokeTests: XCTestCase {
         let rowPitch = period.frame.midY - key("k", in: app).frame.midY
         let comma = origin.withOffset(CGVector(dx: 0, dy: -1.2 * rowPitch))
         NSLog("HEX_POPUP_PORTRAIT")
-        holdAndDrag(period, to: comma, in: app, duration: 8)
+        origin.press(forDuration: 8, thenDragTo: comma)
         assertText("Hi \n123.,", in: field)
-        holdAndDrag(period, to: coordinate(period, in: app), in: app)
+        origin.press(forDuration: 0.55)
         assertText("Hi \n123.,", in: field)
         let columnPitch = key("e", in: app).frame.midX - key("q", in: app).frame.midX
-        holdAndDrag(period, to: coordinate(period, in: app).withOffset(
-            CGVector(dx: -columnPitch, dy: -rowPitch)), in: app)
+        origin.press(forDuration: 0.55, thenDragTo: origin.withOffset(CGVector(dx: -columnPitch, dy: -rowPitch)))
         assertText("Hi \n123.,?", in: field)
 
         swipe(key("123", in: app), dx: 0, dy: -1)
@@ -132,7 +131,7 @@ final class KeyboardSmokeTests: XCTestCase {
         XCTAssertEqual(key("h", in: app).label, "h")
 
         let trackpad = key("123", in: app)
-        holdAndDrag(trackpad, to: coordinate(trackpad, in: app), in: app)
+        coordinate(trackpad, in: app).press(forDuration: 0.55)
         assertText("Hi \n123.,?H", in: field)
         moveCursorFromLayerKey(direction: -1, in: app)
         tap(key("q", in: app))
@@ -195,9 +194,7 @@ final class KeyboardSmokeTests: XCTestCase {
         tap(key("q", in: app))
         assertText("Hi \n123.,q?Hggq", in: field)
         NSLog("HEX_POPUP_LANDSCAPE")
-        let landscapePeriod = key("period", in: app)
-        holdAndDrag(landscapePeriod, to: coordinate(landscapePeriod, in: app),
-                    in: app, duration: 8)
+        coordinate(key("period", in: app), in: app).press(forDuration: 8)
         assertText("Hi \n123.,q?Hggq", in: field)
         let landscape = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         landscape.name = "Keyboard in landscape"
@@ -294,14 +291,11 @@ final class KeyboardSmokeTests: XCTestCase {
         XCTAssertTrue(paste.waitForExistence(timeout: 5), app.debugDescription)
         coordinate(paste, in: app).tap()
         let allow = app.alerts.buttons["Allow Paste"].firstMatch
-        let systemAllow = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.buttons["Allow Paste"].firstMatch
         let ready = expectation(for: NSPredicate { _, _ in
-            field.value as? String == "👩‍💻" || allow.exists || systemAllow.exists
+            field.value as? String == "👩‍💻" || allow.exists
         }, evaluatedWith: field)
-        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed,
-                       app.debugDescription + XCUIApplication(bundleIdentifier: "com.apple.springboard").debugDescription)
+        wait(for: [ready], timeout: 5)
         if allow.exists { allow.tap() }
-        else if systemAllow.exists { systemAllow.tap() }
         assertText("👩‍💻", in: field)
     }
 
@@ -309,15 +303,9 @@ final class KeyboardSmokeTests: XCTestCase {
         let layer = key("123", in: app)
         let start = coordinate(layer, in: app)
         // 0.4 key heights travels 2.45 default cursor steps, away from a step boundary.
-        holdAndDrag(layer, to: start.withOffset(
+        start.press(forDuration: 0.55, thenDragTo: start.withOffset(
             CGVector(dx: direction * layer.frame.height * 0.4, dy: 0)
-        ), in: app)
-    }
-
-    private func holdAndDrag(_ key: XCUIElement, to end: XCUICoordinate,
-                             in app: XCUIApplication, duration: TimeInterval = 1) {
-        let start = coordinate(key, in: app)
-        start.press(forDuration: duration, thenDragTo: end)
+        ))
     }
 
     private func swipe(_ key: XCUIElement, dx: CGFloat, dy: CGFloat) {
@@ -522,10 +510,10 @@ final class KeyboardSmokeTests: XCTestCase {
     }
 
     private func waitForOnScreen(_ element: XCUIElement, in app: XCUIApplication) {
-        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+        let ready = expectation(for: NSPredicate { _, _ in
             self.isOnScreen(element, in: app)
-        }, object: element)
-        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 30), .completed, app.debugDescription)
+        }, evaluatedWith: element)
+        wait(for: [ready], timeout: 30)
     }
 
     private func tapSetting(_ element: XCUIElement, in app: XCUIApplication) {
