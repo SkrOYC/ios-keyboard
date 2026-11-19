@@ -103,3 +103,4 @@ These decisions define the implementation and its verification. See [Implementat
 - D99: Limit prototype authority to strictly parity-checked shared values and describe all orders as an assumed-constant model without user testing because neither the prototype nor the order model validates current ergonomics.
 - D100: Extend rather than replace the phone and tablet probes and preserve popup video markers because new gestures and split copies need evidence without weakening lifecycle, archive, or IPA gates.
 - D101: Separate local simulator, CI, and device-only evidence because screenshots cannot verify HDR, physical gesture feel, host iPad framing, or termination persistence.
+- D102: Put presets and Done in one row for very short key views and recompose on resize because the minimum split scale cannot contain a stacked picker.

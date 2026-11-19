@@ -6,7 +6,7 @@ The keyboard implements uniform-scale unified/split layout, mirrored halves with
 
 **Current change CI: PENDING — replace with the green four-job push run URL after all matrix jobs finish.**
 
-The [material baseline run](https://github.com/SkrOYC/ios-keyboard/actions/runs/44016204422) establishes the preceding native-glass baseline, not verification of the split/gesture changes. The workflow retains four independent required jobs: phone light, phone dark, phone Increase Contrast (Debug), and tablet dark (Release). Each runs source gates, compilation, 33 Foundation tests, 7 UIKit tests, and one full Settings-to-typing UI probe: 41 tests per job. The phone-light job also archives the device app and validates the unsigned IPA. No tag or release is part of this change.
+The [material baseline run](https://github.com/SkrOYC/ios-keyboard/actions/runs/44016204422) establishes the preceding native-glass baseline, not verification of the split/gesture changes. The workflow retains four independent required jobs: phone light, phone dark, phone Increase Contrast (Debug), and tablet dark (Release). Each runs source gates, compilation, 33 Foundation tests, 8 UIKit tests, and one full Settings-to-typing UI probe: 42 tests per job. The phone-light job also archives the device app and validates the unsigned IPA. No tag or release is part of this change.
 
 ## Local verification
 
@@ -17,6 +17,7 @@ Local simulator commands used a command-local `XCODE_VERSION=26.6` override and 
 | `direnv exec . check` | 9 Python tests passed; source configuration, shell/workflow gates, independent geometry fixture, and spec parity passed | `stage3-check.log` |
 | Debug host + extension build | `BUILD SUCCEEDED` | `stage2-build.log` |
 | Debug logic + UIKit suites | 33 Core + 7 UIKit, zero failures; `TEST SUCCEEDED` | `stage2-tests-final.log`, `stage2-tests-final.xcresult` |
+| Minimum-scale picker regression and UIKit suite | 8 UIKit tests, zero failures; `TEST SUCCEEDED`; Done remains in bounds and hit-testable across split scales and resize | `stage4-picker-tests-final.log`, `stage4-picker-tests-final.xcresult` |
 | `direnv exec . env XCODE_VERSION=26.6 IOS_PROBE_APPEARANCE=light IOS_PROBE_CONTRAST=disabled ios-test` | 1 UI + 33 Core + 7 UIKit, zero failures; `TEST EXECUTE SUCCEEDED` | `stage3-phone.log`, `SmokeTests.xcresult` |
 | `direnv exec . env XCODE_VERSION=26.6 ios-ipad-test` | Release/dark iPad, split layout; 1 UI + 33 Core + 7 UIKit, zero failures; `TEST EXECUTE SUCCEEDED` | `stage3-tablet.log`, `TabletTests.xcresult` |
 

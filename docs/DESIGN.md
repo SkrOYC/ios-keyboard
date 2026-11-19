@@ -30,6 +30,8 @@ The touch machine owns caps lock. When enabled, all letter labels are capitals a
 
 Cursor movement converts grapheme steps against the document contexts before/after the cursor to UTF-16 offsets for the text document proxy. Emoji, ZWJ sequences, and flags remain whole. Missing or exhausted context uses the requested residual step count as a fallback; unavailable host context cannot establish unseen grapheme boundaries.
 
+The picker keeps controls inside the key view rather than increasing keyboard height. At less than 128 points tall, presets and Done share a horizontal row without a title. Other compact frames stack the title, a horizontal presets row, and Done; tall frames stack the preset choices. Resizing an open picker recomposes it to fit.
+
 Letter taps insert the displayed letter, upward letter swipes capitalize, right swipes insert space, down swipes insert newline, and left swipes delete. Continued leftward deletion repeats at `max(40, 0.9 * swipeThreshold)` design units from the first firing position. Independent contacts preserve their starting layer and order.
 
 ## Orders and evidence limits

@@ -47,7 +47,7 @@ direnv exec . check
 
 The [GitHub workflow](.github/workflows/build.yml) runs four required jobs on `macos-26`, each with a 45-minute timeout. Each generates the project, boots an SDK-matching simulator, compiles, enables the extension through Settings, and runs tests. The standard phone job also archives the device app and verifies the unsigned IPA.
 
-The phone probes use Debug in light, dark, and light with Increase Contrast. The tablet probe builds Release in dark appearance. Each runs 33 Core tests, 7 UIKit tests, and one complete UI probe (41 tests). The UIKit suite checks accessible actions, duplicate accessibility suppression, tuning controls, and touch passthrough after unified/split resizing. The UI probe uses coordinate taps and drags and requires the exact `Hi \n` sequence before layer, popup, caps lock, preset, picker cancellation, gap, rotation, split-copy, and repeat checks. A paste-based emoji check verifies trackpad insertion without splitting a ZWJ grapheme.
+The phone probes use Debug in light, dark, and light with Increase Contrast. The tablet probe builds Release in dark appearance. Each runs 33 Core tests, 8 UIKit tests, and one complete UI probe (42 tests). The UIKit suite checks accessible actions, duplicate accessibility suppression, tuning controls, touch passthrough after unified/split resizing, and picker bounds at minimum split scale. The UI probe uses coordinate taps and drags and requires the exact `Hi \n` sequence before layer, popup, caps lock, preset, picker cancellation, gap, rotation, split-copy, and repeat checks. A paste-based emoji check verifies trackpad insertion without splitting a ZWJ grapheme.
 
 On macOS with the declared Xcode installation, run the stages with these commands:
 
