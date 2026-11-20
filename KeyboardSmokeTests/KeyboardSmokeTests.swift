@@ -190,6 +190,14 @@ final class KeyboardSmokeTests: XCTestCase {
             }, object: app)
             let result = XCTWaiter.wait(for: [inputReady], timeout: 15)
             if result != .completed {
+                print("KEYBOARD_SELECTION failed appState=\(app.state.rawValue) appFrame=\(app.frame) globeExists=\(globe.exists)")
+                if globe.exists { print("KEYBOARD_SELECTION matched globeFrame=\(globe.frame)") }
+                let nativeButtons = app.buttons.matching(NSPredicate(format: "label IN %@", ["Next keyboard", "Emoji", "ABC"]))
+                for button in nativeButtons.allElementsBoundByIndex.prefix(8) {
+                    let value = button.value as? String
+                    let valueClass = value == "Keyboard" ? "Keyboard" : value == nil ? "nil" : value == "" ? "empty" : "other"
+                    print("KEYBOARD_SELECTION native label=\(button.label) valueClass=\(valueClass) frame=\(button.frame) onScreen=\(isOnScreen(button, in: app))")
+                }
                 for (name, application) in [("host", app), ("springboard", XCUIApplication(bundleIdentifier: "com.apple.springboard"))] {
                     print("KEYBOARD_SELECTION \(name) BEGIN")
                     for line in selectionHierarchy(application.debugDescription).components(separatedBy: .newlines) {
