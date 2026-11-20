@@ -169,6 +169,22 @@ final class KeyboardSmokeTests: XCTestCase {
         }
     }
 
+    private func nativeKeyboardSwitcherPredicate() -> NSPredicate {
+        NSPredicate(format: "label IN %@", ["Next keyboard", "Emoji"])
+    }
+
+    func testNativeKeyboardSwitcherLabelsIgnorePresentationValue() {
+        let predicate = nativeKeyboardSwitcherPredicate()
+        for value in ["Keyboard", "Emoji", "0"] {
+            XCTAssertTrue(predicate.evaluate(with: ["label": "Emoji", "value": value]))
+        }
+        XCTAssertTrue(predicate.evaluate(with: ["label": "Emoji"]))
+        XCTAssertTrue(predicate.evaluate(with: ["label": "Next keyboard"]))
+        XCTAssertFalse(predicate.evaluate(with: ["label": "Continue", "value": "Keyboard"]))
+        XCTAssertFalse(predicate.evaluate(with: ["label": ""]))
+        XCTAssertFalse(predicate.evaluate(with: [:] as [String: String]))
+    }
+
     private func selectKeyboardExtension(in app: XCUIApplication) {
         for cycle in 0..<5 {
             print("KEYBOARD_SELECTION cycle=\(cycle)")
@@ -182,9 +198,7 @@ final class KeyboardSmokeTests: XCTestCase {
                 return
             }
             print("KEYBOARD_SELECTION extension unavailable")
-            let globe = app.buttons.matching(NSPredicate(
-                format: "label == %@ OR (label == %@ AND value == %@)", "Next keyboard", "Emoji", "Keyboard"
-            )).firstMatch
+            let globe = app.buttons.matching(nativeKeyboardSwitcherPredicate()).firstMatch
             let inputReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
                 self.isOnScreen(first, in: app) || self.isOnScreen(globe, in: app)
             }, object: app)
