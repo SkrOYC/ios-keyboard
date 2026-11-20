@@ -1,7 +1,7 @@
 import XCTest
 
 final class KeyboardSmokeTests: XCTestCase {
-    func testInstallEnableAndTypeWithKeyboardExtension() {
+    func testInstallEnableAndTypeWithKeyboardExtension() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launch()
@@ -139,11 +139,19 @@ final class KeyboardSmokeTests: XCTestCase {
         assertText(previous + String(repeating: "q", count: 6), in: field)
         let beforeDelete = (field.value as? String ?? "").count
         let repeatKey = key("h", in: app)
-        let repeatStart = coordinate(repeatKey, in: app)
+        let footprint = key("w", in: app).frame.union(key("period", in: app).frame)
+        let motion = try XCTUnwrap(repeatDeleteMotion(footprintWidth: Double(footprint.width)))
         let repeatFrame = repeatKey.frame
-        let repeatEnd = repeatStart.withOffset(CGVector(dx: -repeatFrame.width * 2.2, dy: 0))
-        print("REPEAT_DELETE start=\(repeatStart.screenPoint) end=\(repeatEnd.screenPoint) keyFrame=\(repeatFrame)")
-        repeatStart.press(forDuration: 0.05, thenDragTo: repeatEnd)
+        let repeatAppFrame = app.frame
+        let distance = CGFloat(motion.distance)
+        XCTAssertTrue(repeatAppFrame.contains(CGPoint(x: repeatFrame.midX - distance, y: repeatFrame.midY)))
+        let repeatStart = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: repeatFrame.midX - repeatAppFrame.minX, dy: repeatFrame.midY - repeatAppFrame.minY
+        ))
+        let repeatEnd = repeatStart.withOffset(CGVector(dx: -distance, dy: 0))
+        print("REPEAT_DELETE startScreen=\(repeatStart.screenPoint) endScreen=\(repeatEnd.screenPoint) keyAXFrame=\(repeatFrame) distance=\(motion.distance) velocity=\(motion.velocity)")
+        repeatStart.press(forDuration: 0.05, thenDragTo: repeatEnd,
+                          withVelocity: XCUIGestureVelocity(rawValue: CGFloat(motion.velocity)), thenHoldForDuration: 0)
         let repeated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             (field.value as? String ?? "").count <= beforeDelete - 2
         }, object: field)
@@ -152,6 +160,40 @@ final class KeyboardSmokeTests: XCTestCase {
         print("REPEAT_DELETE result=\(repeatResult.rawValue) beforeCount=\(beforeDelete) afterCount=\(afterDelete) deletedCount=\(beforeDelete - afterDelete)")
         XCTAssertEqual(repeatResult, .completed)
         XCUIDevice.shared.orientation = .portrait
+    }
+
+    private func repeatDeleteMotion(footprintWidth: Double) -> (distance: Double, velocity: Double)? {
+        guard footprintWidth.isFinite, footprintWidth > 0 else { return nil }
+        let reference = HexGeometry()
+        let referenceWidth = reference.center(of: HexKey(slot: 27)).x
+            - reference.center(of: HexKey(slot: 0)).x + 2 * reference.radius
+        let scale = footprintWidth / referenceWidth
+        return ((TouchMachine.threshold + 4 * TouchMachine.repeatDistance) * scale,
+                TouchMachine.repeatDistance * scale)
+    }
+
+    func testRepeatDeleteMotionUsesScaledRepeatIntervals() throws {
+        for (width, height) in [(390.0, 260.0), (820.0, 180.0), (700.0, 300.0)] {
+            let geometry = HexGeometry(width: width, height: height)
+            let footprint = geometry.center(of: HexKey(slot: 27)).x
+                - geometry.center(of: HexKey(slot: 0)).x + 2 * geometry.radius
+            let motion = try XCTUnwrap(repeatDeleteMotion(footprintWidth: footprint))
+            let scale = width / HexGeometry.designWidth
+            XCTAssertEqual(motion.distance, (TouchMachine.threshold + 4 * TouchMachine.repeatDistance) * scale, accuracy: 1e-8)
+            XCTAssertEqual(motion.velocity, TouchMachine.repeatDistance * scale, accuracy: 1e-8)
+            let start = geometry.center(of: HexKey(slot: 18))
+            XCTAssertGreaterThan(start.x - motion.distance, 0)
+            var machine = TouchMachine(geometry: geometry)
+            machine.begin(1, at: start, time: 0)
+            var actions: [KeyboardAction] = []
+            for sample in 1...24 {
+                actions += machine.move(1, to: HexPoint(x: start.x - motion.distance * Double(sample) / 24, y: start.y))
+            }
+            XCTAssertGreaterThanOrEqual(actions.filter { $0 == .delete }.count, 2)
+        }
+        for width in [0.0, -1.0, .infinity, .nan] {
+            XCTAssertNil(repeatDeleteMotion(footprintWidth: width))
+        }
     }
 
     private func swipe(_ key: XCUIElement, dx: CGFloat, dy: CGFloat) {

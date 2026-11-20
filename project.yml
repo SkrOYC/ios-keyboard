@@ -70,6 +70,7 @@ targets:
     platform: iOS
     sources:
       - path: KeyboardSmokeTests
+      - path: Keyboard/Core
     dependencies:
       - target: KeyboardHost
     settings:

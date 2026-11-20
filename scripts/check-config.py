@@ -64,6 +64,9 @@ def main():
             extension = info["NSExtension"]
             assert extension["NSExtensionPointIdentifier"] == "com.apple.keyboard-service"
             assert extension["NSExtensionAttributes"]["RequestsOpenAccess"] is False
+    smoke = spec["targets"]["KeyboardSmokeTests"]
+    assert smoke["type"] == "bundle.ui-testing"
+    assert {source["path"] for source in smoke["sources"]} == {"KeyboardSmokeTests", "Keyboard/Core"}
     logic = spec["targets"]["KeyboardLogicTests"]
     assert logic["type"] == "bundle.unit-test"
     assert {source["path"] for source in logic["sources"]} == {"Keyboard/Core", "KeyboardLogicTests"}
