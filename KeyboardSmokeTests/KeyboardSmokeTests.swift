@@ -219,6 +219,25 @@ final class KeyboardSmokeTests: XCTestCase {
         NSPredicate(format: "label IN %@", ["Next keyboard", "Emoji"])
     }
 
+    private func keyboardInputIsReady(native: @autoclosure () -> Bool, custom: @autoclosure () -> Bool) -> Bool {
+        native() || custom()
+    }
+
+    func testKeyboardInputReadinessChecksNativeFirstAndShortCircuits() {
+        for native in [false, true] {
+            for custom in [false, true] {
+                var queries: [String] = []
+                func query(_ name: String, ready: Bool) -> Bool {
+                    queries.append(name)
+                    return ready
+                }
+                XCTAssertEqual(keyboardInputIsReady(native: query("native", ready: native),
+                                                    custom: query("custom", ready: custom)), native || custom)
+                XCTAssertEqual(queries, native ? ["native"] : ["native", "custom"])
+            }
+        }
+    }
+
     func testNativeKeyboardSwitcherLabelsIgnorePresentationValue() {
         let predicate = nativeKeyboardSwitcherPredicate()
         for value in ["Keyboard", "Emoji", "0"] {
@@ -246,7 +265,8 @@ final class KeyboardSmokeTests: XCTestCase {
             print("KEYBOARD_SELECTION extension unavailable")
             let globe = app.buttons.matching(nativeKeyboardSwitcherPredicate()).firstMatch
             let inputReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-                self.isOnScreen(first, in: app) || self.isOnScreen(globe, in: app)
+                self.keyboardInputIsReady(native: self.isOnScreen(globe, in: app),
+                                          custom: self.isOnScreen(first, in: app))
             }, object: app)
             let result = XCTWaiter.wait(for: [inputReady], timeout: 15)
             if result != .completed {
