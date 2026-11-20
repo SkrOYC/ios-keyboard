@@ -241,7 +241,8 @@ final class KeyboardSmokeTests: XCTestCase {
         var count = 0
         var truncated = false
         var relevant: [String] = []
-        for line in description.components(separatedBy: .newlines) {
+        for rawLine in description.components(separatedBy: .newlines) {
+            let line = rawLine.components(separatedBy: ", value:")[0]
             let range = NSRange(line.startIndex..., in: line)
             guard let match = node.firstMatch(in: line, range: range),
                   let indentation = Range(match.range(at: 1), in: line),
@@ -296,6 +297,9 @@ final class KeyboardSmokeTests: XCTestCase {
         XCTAssertTrue(summary.contains("{{1.0, 2.0}, {100.0, 50.0}}"))
         XCTAssertFalse(summary.contains("private-"))
         XCTAssertFalse(summary.contains("value"))
+        let valueWithAttributes = selectionHierarchy("TextView, 0xabc, value: '{{98765.0, 2.0}, {3.0, 4.0}}, label: 'Continue''")
+        XCTAssertFalse(valueWithAttributes.contains("98765"))
+        XCTAssertFalse(valueWithAttributes.contains("Continue"))
         XCTAssertEqual(selectionHierarchy(""), "[no accessible nodes]")
         XCTAssertEqual(selectionHierarchy("malformed input"), "[no accessible nodes]")
         let bounded = selectionHierarchy(String(repeating: hierarchy, count: 500))
