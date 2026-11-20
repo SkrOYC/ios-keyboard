@@ -140,13 +140,17 @@ final class KeyboardSmokeTests: XCTestCase {
         let beforeDelete = (field.value as? String ?? "").count
         let repeatKey = key("h", in: app)
         let repeatStart = coordinate(repeatKey, in: app)
-        repeatStart.press(forDuration: 0.05, thenDragTo: repeatStart.withOffset(
-            CGVector(dx: -repeatKey.frame.width * 2.2, dy: 0)
-        ))
+        let repeatFrame = repeatKey.frame
+        let repeatEnd = repeatStart.withOffset(CGVector(dx: -repeatFrame.width * 2.2, dy: 0))
+        print("REPEAT_DELETE start=\(repeatStart.screenPoint) end=\(repeatEnd.screenPoint) keyFrame=\(repeatFrame)")
+        repeatStart.press(forDuration: 0.05, thenDragTo: repeatEnd)
         let repeated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             (field.value as? String ?? "").count <= beforeDelete - 2
         }, object: field)
-        XCTAssertEqual(XCTWaiter.wait(for: [repeated], timeout: 5), .completed)
+        let repeatResult = XCTWaiter.wait(for: [repeated], timeout: 5)
+        let afterDelete = (field.value as? String ?? "").count
+        print("REPEAT_DELETE result=\(repeatResult.rawValue) beforeCount=\(beforeDelete) afterCount=\(afterDelete) deletedCount=\(beforeDelete - afterDelete)")
+        XCTAssertEqual(repeatResult, .completed)
         XCUIDevice.shared.orientation = .portrait
     }
 

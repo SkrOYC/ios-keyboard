@@ -133,7 +133,10 @@ final class HexKeyboardView: UIView {
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
             guard let id = touchIDs[ObjectIdentifier(touch)] else { continue }
-            let actions = machine.move(id, to: point(touch))
+            let location = point(touch)
+            let contact = machine.contacts[id]
+            let actions = machine.move(id, to: location)
+            reportDeleteMotion(actions, contact: contact, at: location, phase: "move")
             send(actions)
             if machine.contacts[id]?.holdAllowed == false { holdTimers.removeValue(forKey: id)?.invalidate() }
         }
@@ -149,10 +152,20 @@ final class HexKeyboardView: UIView {
             guard let id = touchIDs.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
             holdTimers.removeValue(forKey: id)?.invalidate()
             let location = point(touch)
+            let contact = machine.contacts[id]
             let actions = machine.end(id, at: location, time: touch.timestamp)
+            reportDeleteMotion(actions, contact: contact, at: location, phase: "end")
             send(actions)
         }
         refresh()
+    }
+
+    private func reportDeleteMotion(_ actions: [KeyboardAction], contact: TouchMachine.Contact?,
+                                    at location: HexPoint, phase: String) {
+        let count = actions.filter { $0 == .delete }.count
+        guard count > 0, let contact else { return }
+        let travel = String(format: "%.1f", (location.x - contact.start.x) / machine.scale)
+        onDiagnostic?("delete motion phase=\(phase) first=\(contact.direction == nil) travel=\(travel) count=\(count)")
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {

@@ -18,7 +18,7 @@ unset CC CXX LD LDPLUSPLUS AR AS NM RANLIB STRIP SDKROOT
 mkdir -p build
 
 report_failure() {
-  rg -n -C 3 --max-columns 300 --max-columns-preview 'error:|failed|Failed|XCTAssert|KEYBOARD_SELECTION' "$1" || true
+  rg -n -C 3 --max-columns 300 --max-columns-preview 'error:|failed|Failed|XCTAssert|KEYBOARD_SELECTION|REPEAT_DELETE' "$1" || true
   tail -n 45 "$1"
 }
 
@@ -137,6 +137,7 @@ run_tests() {
     print -r -- failure > "$capture_done"
     wait "$popup_capture_pid" 2>/dev/null || true
     collect_extension_diagnostics "$probe_name" || true
+    python3 scripts/report-repeat-actions.py "$simulator" "build/DerivedData/Build/Products/${probe_configuration}-iphonesimulator/Keyboard.appex/Info.plist" || true
     /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/${probe_name}-failure.png" || true
     /usr/bin/xcrun xcresulttool export attachments --path "$probe_result" --output-path "$probe_screenshots" || true
     report_failure "$probe_log"
@@ -148,7 +149,8 @@ run_tests() {
   /usr/bin/xcrun xcresulttool export attachments --help > build/xcresult-export-help.txt
   /usr/bin/xcrun xcresulttool export attachments --path "$probe_result" --output-path "$probe_screenshots"
   /usr/bin/xcrun simctl io "$simulator" screenshot "$PWD/build/${probe_name}.png"
-  rg 'KEYBOARD_SELECTION' "$probe_log" || true
+  python3 scripts/report-repeat-actions.py "$simulator" "build/DerivedData/Build/Products/${probe_configuration}-iphonesimulator/Keyboard.appex/Info.plist" || true
+  rg 'KEYBOARD_SELECTION|REPEAT_DELETE' "$probe_log" || true
   tail -n 25 "$probe_log"
   return "$capture_result"
 }
