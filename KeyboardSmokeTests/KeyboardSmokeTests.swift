@@ -172,11 +172,26 @@ final class KeyboardSmokeTests: XCTestCase {
         let rotated = expectation(for: NSPredicate { _, _ in app.frame.width > app.frame.height }, evaluatedWith: app)
         wait(for: [rotated], timeout: 15)
         XCTAssertTrue(key("q", in: app).waitForExistence(timeout: 10))
+        var splitSample = "not evaluated"
+        var splitSamples = 0
+        let splitStarted = Date()
         let splitReady = expectation(for: NSPredicate { _, _ in
-            self.key("g", in: app).frame.midX < app.frame.midX
-                && self.key("h", in: app).frame.midX > app.frame.midX
+            let left = self.key("g", in: app).frame
+            let leftApp = app.frame
+            var right = CGRect.zero
+            var rightApp = CGRect.zero
+            let ready = left.midX < leftApp.midX && {
+                right = self.key("h", in: app).frame
+                rightApp = app.frame
+                return right.midX > rightApp.midX
+            }()
+            splitSamples += 1
+            splitSample = "left=\(left) leftApp=\(leftApp) right=\(right) rightApp=\(rightApp) ready=\(ready)"
+            return ready
         }, evaluatedWith: app)
-        wait(for: [splitReady], timeout: 10)
+        let splitResult = XCTWaiter.wait(for: [splitReady], timeout: 10)
+        print("SPLIT_LAYOUT result=\(splitResult.rawValue) samples=\(splitSamples) elapsed=\(Date().timeIntervalSince(splitStarted)) \(splitSample)")
+        XCTAssertEqual(splitResult, .completed)
         for letter in ["g", "f", "n", "v"] {
             XCTAssertTrue(key(letter, in: app).isHittable)
             XCTAssertLessThan(key(letter, in: app).frame.midX, app.frame.midX)
