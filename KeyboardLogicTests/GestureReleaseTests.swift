@@ -9,7 +9,7 @@ final class GestureReleaseTests: XCTestCase {
             let end = HexPoint(x: start.x - travel, y: start.y)
             for duration in [0.05, 1.0] {
                 var machine = TouchMachine(geometry: geometry)
-                XCTAssertGreaterThan(travel, (TouchMachine.threshold + TouchMachine.repeatDistance) * machine.scale)
+                XCTAssertGreaterThan(travel, (machine.tuning.swipeThreshold + machine.repeatDistance) * machine.scale)
                 machine.begin(1, at: start, time: 0)
                 XCTAssertEqual(machine.advance(1, time: duration), [])
                 XCTAssertEqual(machine.end(1, at: end, time: duration), [.delete])
@@ -21,9 +21,9 @@ final class GestureReleaseTests: XCTestCase {
         var machine = TouchMachine(geometry: HexGeometry())
         let start = machine.geometry.center(of: HexKey(slot: 18))
         machine.begin(1, at: start, time: 0)
-        let first = HexPoint(x: start.x - TouchMachine.threshold, y: start.y)
+        let first = HexPoint(x: start.x - machine.tuning.swipeThreshold, y: start.y)
         XCTAssertEqual(machine.move(1, to: first), [.delete])
-        let end = HexPoint(x: first.x - 2 * TouchMachine.repeatDistance, y: first.y)
+        let end = HexPoint(x: first.x - 2 * machine.repeatDistance, y: first.y)
         XCTAssertEqual(machine.end(1, at: end, time: 0.05), [.delete, .delete])
         XCTAssertTrue(machine.contacts.isEmpty)
     }

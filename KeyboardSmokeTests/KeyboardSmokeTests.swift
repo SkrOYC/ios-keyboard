@@ -2,6 +2,9 @@ import XCTest
 import UIKit
 
 final class KeyboardSmokeTests: XCTestCase {
+    private var probeTuning: KeyboardTuning { KeyboardTuning(tablet: UIDevice.current.userInterfaceIdiom == .pad) }
+    private var heldGestureDuration: TimeInterval { max(1, 2 * probeTuning.holdMilliseconds / 1000) }
+
     func testInstallEnableAndTypeWithKeyboardExtension() throws {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
@@ -51,14 +54,14 @@ final class KeyboardSmokeTests: XCTestCase {
         pasteEmoji(into: field, in: app)
         tap(key("q", in: app))
         assertText("👩‍💻q", in: field)
-        moveCursorFromLayerKey(direction: -1, in: app)
+        try moveCursorFromLayerKey(direction: -1, in: app)
         tap(key("h", in: app))
         assertText("h👩‍💻q", in: field)
         let emoji = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         emoji.name = "Trackpad preserves emoji grapheme"
         emoji.lifetime = .keepAlways
         add(emoji)
-        moveCursorFromLayerKey(direction: 1, in: app)
+        try moveCursorFromLayerKey(direction: 1, in: app)
         for expected in ["h👩‍💻", "h", ""] {
             swipe(key("q", in: app), dx: -1, dy: 0)
             assertText(expected, in: field)
@@ -113,10 +116,10 @@ final class KeyboardSmokeTests: XCTestCase {
         NSLog("HEX_POPUP_PORTRAIT")
         origin.press(forDuration: 8, thenDragTo: comma)
         assertText("Hi \n123.,", in: field)
-        origin.press(forDuration: 0.55)
+        origin.press(forDuration: heldGestureDuration)
         assertText("Hi \n123.,", in: field)
         let columnPitch = key("e", in: app).frame.midX - key("q", in: app).frame.midX
-        origin.press(forDuration: 0.55, thenDragTo: origin.withOffset(CGVector(dx: -columnPitch, dy: -rowPitch)))
+        origin.press(forDuration: heldGestureDuration, thenDragTo: origin.withOffset(CGVector(dx: -columnPitch, dy: -rowPitch)))
         assertText("Hi \n123.,?", in: field)
 
         swipe(key("123", in: app), dx: 0, dy: -1)
@@ -131,12 +134,12 @@ final class KeyboardSmokeTests: XCTestCase {
         XCTAssertEqual(key("h", in: app).label, "h")
 
         let trackpad = key("123", in: app)
-        coordinate(trackpad, in: app).press(forDuration: 0.55)
+        coordinate(trackpad, in: app).press(forDuration: heldGestureDuration)
         assertText("Hi \n123.,?H", in: field)
-        moveCursorFromLayerKey(direction: -1, in: app)
+        try moveCursorFromLayerKey(direction: -1, in: app)
         tap(key("q", in: app))
         assertText("Hi \n123.,q?H", in: field)
-        moveCursorFromLayerKey(direction: 1, in: app)
+        try moveCursorFromLayerKey(direction: 1, in: app)
 
         let familiarE = key("e", in: app).frame
         openPicker(in: app)
@@ -218,9 +221,8 @@ final class KeyboardSmokeTests: XCTestCase {
         assertText(previous + String(repeating: "q", count: 6), in: field)
         let beforeDelete = (field.value as? String ?? "").count
         let repeatKey = key("h", in: app)
-        let footprint = key("w", in: app).frame.union(key("period", in: app).frame)
-        let motion = try XCTUnwrap(repeatDeleteMotion(footprintWidth: Double(footprint.width)))
         let repeatFrame = repeatKey.frame
+        let motion = try XCTUnwrap(repeatDeleteMotion(keyHeight: Double(repeatFrame.height), tuning: probeTuning))
         let repeatAppFrame = app.frame
         let distance = CGFloat(motion.distance)
         XCTAssertTrue(repeatAppFrame.contains(CGPoint(x: repeatFrame.midX - distance, y: repeatFrame.midY)))
@@ -241,28 +243,33 @@ final class KeyboardSmokeTests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
     }
 
-    private func repeatDeleteMotion(footprintWidth: Double) -> (distance: Double, velocity: Double)? {
-        guard footprintWidth.isFinite, footprintWidth > 0 else { return nil }
-        let reference = HexGeometry()
-        let referenceWidth = reference.center(of: HexKey(slot: 27)).x
-            - reference.center(of: HexKey(slot: 0)).x + 2 * reference.radius
-        let scale = footprintWidth / referenceWidth
-        return ((TouchMachine.threshold + 4 * TouchMachine.repeatDistance) * scale,
-                TouchMachine.repeatDistance * scale)
+    private func gestureScale(keyHeight: Double) -> Double? {
+        guard keyHeight.isFinite, keyHeight > 0 else { return nil }
+        return keyHeight / (2 * HexGeometry().apothem)
+    }
+
+    private func repeatDeleteMotion(keyHeight: Double, tuning: KeyboardTuning) -> (distance: Double, velocity: Double)? {
+        guard let scale = gestureScale(keyHeight: keyHeight) else { return nil }
+        var machine = TouchMachine(geometry: HexGeometry())
+        machine.tuning = tuning
+        return ((tuning.swipeThreshold + 4 * machine.repeatDistance) * scale,
+                machine.repeatDistance * scale)
+    }
+
+    private func trackpadMotion(keyHeight: Double, tuning: KeyboardTuning) -> (distance: Double, hold: TimeInterval)? {
+        guard let scale = gestureScale(keyHeight: keyHeight) else { return nil }
+        return (2.2 * tuning.trackpadUnitsPerCharacter * scale, max(1, 2 * tuning.holdMilliseconds / 1000))
     }
 
     func testRepeatDeleteMotionUsesScaledRepeatIntervals() throws {
-        for (width, height) in [(390.0, 260.0), (820.0, 180.0), (700.0, 300.0)] {
-            let geometry = HexGeometry(width: width, height: height)
-            let footprint = geometry.center(of: HexKey(slot: 27)).x
-                - geometry.center(of: HexKey(slot: 0)).x + 2 * geometry.radius
-            let motion = try XCTUnwrap(repeatDeleteMotion(footprintWidth: footprint))
-            let scale = width / HexGeometry.designWidth
-            XCTAssertEqual(motion.distance, (TouchMachine.threshold + 4 * TouchMachine.repeatDistance) * scale, accuracy: 1e-8)
-            XCTAssertEqual(motion.velocity, TouchMachine.repeatDistance * scale, accuracy: 1e-8)
+        for (geometry, tuning) in gestureProbeConfigurations() {
+            var machine = TouchMachine(geometry: geometry)
+            machine.tuning = tuning
+            let motion = try XCTUnwrap(repeatDeleteMotion(keyHeight: 2 * geometry.apothem, tuning: tuning))
+            XCTAssertEqual(motion.distance, (tuning.swipeThreshold + 4 * machine.repeatDistance) * geometry.scale, accuracy: 1e-8)
+            XCTAssertEqual(motion.velocity, machine.repeatDistance * geometry.scale, accuracy: 1e-8)
             let start = geometry.center(of: HexKey(slot: 18))
             XCTAssertGreaterThan(start.x - motion.distance, 0)
-            var machine = TouchMachine(geometry: geometry)
             machine.begin(1, at: start, time: 0)
             var actions: [KeyboardAction] = []
             for sample in 1...24 {
@@ -270,9 +277,54 @@ final class KeyboardSmokeTests: XCTestCase {
             }
             XCTAssertGreaterThanOrEqual(actions.filter { $0 == .delete }.count, 2)
         }
-        for width in [0.0, -1.0, .infinity, .nan] {
-            XCTAssertNil(repeatDeleteMotion(footprintWidth: width))
+        for height in [0.0, -1.0, .infinity, .nan] {
+            XCTAssertNil(repeatDeleteMotion(keyHeight: height, tuning: probeTuning))
         }
+    }
+
+    func testTrackpadMotionUsesScaledTuning() throws {
+        for (geometry, tuning) in gestureProbeConfigurations() {
+            let motion = try XCTUnwrap(trackpadMotion(keyHeight: 2 * geometry.apothem, tuning: tuning))
+            XCTAssertEqual(motion.distance, 2.2 * tuning.trackpadUnitsPerCharacter * geometry.scale, accuracy: 1e-8)
+            XCTAssertLessThan(motion.distance, tuning.swipeThreshold * geometry.scale)
+            XCTAssertGreaterThan(motion.hold, tuning.holdMilliseconds / 1000)
+            let start = geometry.center(of: HexKey(slot: 3))
+            XCTAssertGreaterThan(start.x - motion.distance, 0)
+            for direction in [-1.0, 1.0] {
+                var machine = TouchMachine(geometry: geometry)
+                machine.tuning = tuning
+                machine.begin(1, at: start, time: 0)
+                XCTAssertEqual(machine.advance(1, time: motion.hold), [])
+                let end = HexPoint(x: start.x + direction * motion.distance, y: start.y)
+                XCTAssertEqual(machine.move(1, to: end), [.moveCursor(graphemes: Int(direction) * 2)])
+                XCTAssertEqual(machine.end(1, at: end, time: motion.hold), [])
+                XCTAssertFalse(machine.isTrackpadActive)
+            }
+        }
+        for height in [0.0, -1.0, .infinity, .nan] {
+            XCTAssertNil(trackpadMotion(keyHeight: height, tuning: probeTuning))
+        }
+    }
+
+    private func gestureProbeConfigurations() -> [(HexGeometry, KeyboardTuning)] {
+        var configurations: [(HexGeometry, KeyboardTuning)] = []
+        for (width, shorterSide, tablet) in [(390.0, 390.0, false), (844.0, 390.0, false),
+                                            (1032.0, 1032.0, true), (1376.0, 1032.0, true)] {
+            for splitScale in [0.25, 0.75, 1.0] {
+                for customized in [false, true] {
+                    var tuning = KeyboardTuning(tablet: tablet)
+                    tuning[.splitKeyScale] = splitScale
+                    if customized {
+                        tuning[.swipeThreshold] = 120
+                        tuning[.trackpadUnitsPerCharacter] = 50
+                        tuning[.holdMilliseconds] = 600
+                    }
+                    let layout = HexLayout(containerWidth: width, shorterSide: shorterSide, tablet: tablet, tuning: tuning)
+                    configurations.append((layout.geometry, tuning))
+                }
+            }
+        }
+        return configurations
     }
 
     private func openPicker(in app: XCUIApplication) {
@@ -299,12 +351,16 @@ final class KeyboardSmokeTests: XCTestCase {
         assertText("👩‍💻", in: field)
     }
 
-    private func moveCursorFromLayerKey(direction: CGFloat, in app: XCUIApplication) {
+    private func moveCursorFromLayerKey(direction: CGFloat, in app: XCUIApplication) throws {
         let layer = key("123", in: app)
-        let start = coordinate(layer, in: app)
-        // 0.36 key heights travels 2.2 default cursor steps, below the swipe threshold.
-        start.press(forDuration: 1, thenDragTo: start.withOffset(
-            CGVector(dx: direction * layer.frame.height * 0.36, dy: 0)
+        let frame = layer.frame
+        let motion = try XCTUnwrap(trackpadMotion(keyHeight: Double(frame.height), tuning: probeTuning))
+        let appFrame = app.frame
+        let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: frame.midX - appFrame.minX, dy: frame.midY - appFrame.minY
+        ))
+        start.press(forDuration: motion.hold, thenDragTo: start.withOffset(
+            CGVector(dx: direction * CGFloat(motion.distance), dy: 0)
         ))
     }
 
