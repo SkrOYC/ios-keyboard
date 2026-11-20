@@ -32,13 +32,6 @@ final class KeyboardSmokeTests: XCTestCase {
         print("KEYBOARD_SELECTION activated keyboardExists=\(keyboardRestored)")
         if !keyboardRestored { field.tap() }
         dismissSystemKeyboardIntroduction(in: app)
-        let emoji = app.buttons["Emoji"].firstMatch
-        if isOnScreen(emoji, in: app) {
-            coordinate(emoji, in: app).tap()
-            print("KEYBOARD_SELECTION entered native Emoji keyboard")
-        } else {
-            print("KEYBOARD_SELECTION native Emoji control unavailable")
-        }
         selectKeyboardExtension(in: app)
         dismissEditingMenu(in: app)
         XCTAssertTrue(key("q", in: app).waitForExistence(timeout: 10), app.debugDescription)
